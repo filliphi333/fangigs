@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-
+// JoinModal updated manually
 export default function JoinModal({ isOpen, onClose }) {
   const [userType, setUserType] = useState('talent'); // 'talent' or 'creator'
 
