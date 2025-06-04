@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import JoinModal from '../../components/JoinModal';
+import JoinModal from '../components/JoinModal';
 
 export default function Home() {const [isJoinOpen, setJoinOpen] = useState(false);
 
