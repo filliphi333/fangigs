@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import JoinModal from '../components/JoinModal';
 
-export default function Home() {const [isJoinOpen, setJoinOpen] = useState(false);
+export default function Home() {
+  const [isJoinOpen, setJoinOpen] = useState(false);
 
   function scroll(direction) {
     const container = document.getElementById('roleScroll');
@@ -26,10 +27,7 @@ export default function Home() {const [isJoinOpen, setJoinOpen] = useState(false
             </nav>
           </div>
           <div className="flex items-center space-x-4">
-            <a onClick={() => setJoinOpen(true)} className="cursor-pointer bg-[#E8967B] text-white px-4 py-2 rounded font-medium hover:opacity-90 transition">
-  Join
-</a>
-
+            <a onClick={() => setJoinOpen(true)} className="cursor-pointer bg-[#E8967B] text-white px-4 py-2 rounded font-medium hover:opacity-90 transition">Join</a>
             <a href="#" className="border-2 border-[#E8967B] text-black px-4 py-2 rounded font-medium hover:bg-[#E8967B] hover:text-white transition">Post a Job</a>
             <a href="#" className="text-black font-semibold hover:text-blue-900 transition">Sign In</a>
           </div>
@@ -112,52 +110,52 @@ export default function Home() {const [isJoinOpen, setJoinOpen] = useState(false
           </button>
         </div>
       </section>
+
+      {/* Trending Bar */}
+      <section className="px-4 mb-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="relative mb-6">
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 w-full bg-pink-500 z-0"></div>
+            <h2 className="relative z-10 text-black text-xl font-bold bg-white inline-block px-2">Trending Roles</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {[
+              { title: "Female Model for Beach Shoot", location: "Miami, FL", pay: "$800/day" },
+              { title: "OnlyFans Videographer", location: "Los Angeles, CA", pay: "$500/session" },
+              { title: "LGBTQ Male Model for collab", location: "New York", pay: "$250/hr" }
+            ].map((job, index) => (
+              <div key={index} className="border p-4 rounded-lg shadow hover:shadow-md transition">
+                <h3 className="text-lg font-semibold">{job.title}</h3>
+                <p className="text-sm text-gray-600">{job.location}</p>
+                <p className="text-sm text-green-700 font-medium">{job.pay}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* News Section Placeholder */}
+      <section className="px-4 mb-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="relative mb-6">
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 w-full bg-pink-500 z-0"></div>
+            <h2 className="relative z-10 text-black text-xl font-bold bg-white inline-block px-2">Industry News</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="border p-4 rounded-lg shadow hover:shadow-md transition">
+                <div className="h-40 bg-gray-200 mb-4 rounded"></div>
+                <h3 className="text-md font-semibold">News Title {n}</h3>
+                <p className="text-sm text-gray-600">Brief description of the news goes here...</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <JoinModal isOpen={isJoinOpen} onClose={() => setJoinOpen(false)} />
     </main>
   );
 }
-{/* Trending Bar */}
-<section className="px-4 mb-10">
-  <div className="max-w-6xl mx-auto">
-    <div className="relative mb-6">
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 w-full bg-pink-500 z-0"></div>
-      <h2 className="relative z-10 text-black text-xl font-bold bg-white inline-block px-2">Trending Roles</h2>
-    </div>
-
-    {/* Latest Jobs */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-      {[
-        { title: "Female Model for Beach Shoot", location: "Miami, FL", pay: "$800/day" },
-        { title: "OnlyFans Videographer", location: "Los Angeles, CA", pay: "$500/session" },
-        { title: "LGBTQ Male Model for collab", location: "New York", pay: "$250/hr" }
-      ].map((job, index) => (
-        <div key={index} className="border p-4 rounded-lg shadow hover:shadow-md transition">
-          <h3 className="text-lg font-semibold">{job.title}</h3>
-          <p className="text-sm text-gray-600">{job.location}</p>
-          <p className="text-sm text-green-700 font-medium">{job.pay}</p>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
-
-{/* News Section Placeholder */}
-<section className="px-4 mb-10">
-  <div className="max-w-6xl mx-auto">
-    <div className="relative mb-6">
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 w-full bg-pink-500 z-0"></div>
-      <h2 className="relative z-10 text-black text-xl font-bold bg-white inline-block px-2">Industry News</h2>
-    </div>
-
-    {/* News Card Grid Placeholder */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-      {[1, 2, 3].map((n) => (
-        <div key={n} className="border p-4 rounded-lg shadow hover:shadow-md transition">
-          <div className="h-40 bg-gray-200 mb-4 rounded"></div>
-          <h3 className="text-md font-semibold">News Title {n}</h3>
-          <p className="text-sm text-gray-600">Brief description of the news goes here...</p>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
