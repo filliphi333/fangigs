@@ -54,15 +54,15 @@ export default function JoinModal({ isOpen, onClose }) {
             </button>
           </div>
 
-          {/* Social Sign Up */}
-          <div className="flex justify-center space-x-4 mb-6">
-            <div className="w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-full cursor-pointer">
-              <i className="fab fa-facebook-f"></i>
-            </div>
-            <div className="w-10 h-10 flex items-center justify-center bg-red-500 text-white rounded-full cursor-pointer">
-              <i className="fab fa-google"></i>
-            </div>
-          </div>
+        {/* Social Sign Up */}
+<div className="flex justify-center space-x-4 mb-6">
+  <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full cursor-pointer shadow">
+    <img src="/images/facebook.jpg" alt="Facebook" className="w-6 h-6" />
+  </div>
+  <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full cursor-pointer shadow">
+    <img src="/images/google.jpg" alt="Google" className="w-6 h-6" />
+  </div>
+</div>
 
           {/* Form */}
           <form
