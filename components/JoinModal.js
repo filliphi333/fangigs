@@ -19,16 +19,20 @@ export default function JoinModal({ isOpen, onClose }) {
         {/* Type Switcher */}
         <div className="mb-4 flex justify-center space-x-4">
           <button
-            className={`px-4 py-2 rounded ${
-              userType === 'talent' ? 'bg-blue-600 text-white' : 'bg-gray-200'
+            className={`px-4 py-2 rounded font-medium transition ${
+              userType === 'talent'
+                ? 'bg-darkPeach text-white'
+                : 'bg-gray-200 text-gray-800'
             }`}
             onClick={() => setUserType('talent')}
           >
             Talent
           </button>
           <button
-            className={`px-4 py-2 rounded ${
-              userType === 'creator' ? 'bg-blue-600 text-white' : 'bg-gray-200'
+            className={`px-4 py-2 rounded font-medium transition ${
+              userType === 'creator'
+                ? 'bg-darkPeach text-white'
+                : 'bg-gray-200 text-gray-800'
             }`}
             onClick={() => setUserType('creator')}
           >
@@ -88,7 +92,10 @@ export default function JoinModal({ isOpen, onClose }) {
             </>
           )}
 
-          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded mt-4 hover:bg-blue-700">
+          <button
+            type="submit"
+            className="w-full bg-darkPeach text-white py-2 rounded mt-4 hover:opacity-90 transition"
+          >
             Join Now
           </button>
         </form>
