@@ -1,11 +1,63 @@
 'use client';
 import { useState } from 'react';
 import Image from 'next/image';
+import { supabase } from '../lib/supabase'; // adjust path if needed
 
 export default function JoinModal({ isOpen, onClose }) {
   const [userType, setUserType] = useState('talent'); // 'talent' or 'creator'
 
   if (!isOpen) return null;
+
+const handleSignUp = async (e) => {
+  e.preventDefault();
+  const form = e.target;
+
+  const payload = {
+    fullName: form.fullName.value,
+    email: form.email.value,
+    password: form.password.value,
+    type: userType,
+    phone: form.phone?.value || null,
+    company: form.company?.value || null,
+  };
+
+  const { data, error } = await supabase.auth.signUp({
+    email: payload.email,
+    password: payload.password,
+  });
+
+  if (error) {
+    alert('Signup failed: ' + error.message);
+    return;
+  }
+
+  if (data.user) {
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: data.user.id,
+        full_name: payload.fullName,
+        type: payload.type,
+        phone: payload.phone,
+        company: payload.company,
+      });
+
+    if (profileError) {
+      console.error('Profile insertion error:', profileError);
+      alert('Profile creation failed. Please try again.');
+      return;
+    }
+
+    // Redirect based on user type
+    if (payload.type === 'creator') {
+      window.location.href = '/producer-dashboard';
+    } else {
+      window.location.href = '/talent-dashboard';
+    }
+
+    onClose(); // Close modal only after successful signup and redirect
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/50">
@@ -54,42 +106,18 @@ export default function JoinModal({ isOpen, onClose }) {
             </button>
           </div>
 
-        {/* Social Sign Up */}
-<div className="flex justify-center space-x-4 mb-6">
-  <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full cursor-pointer shadow">
-    <img src="/images/facebook.jpg" alt="Facebook" className="w-6 h-6" />
-  </div>
-  <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full cursor-pointer shadow">
-    <img src="/images/google.jpg" alt="Google" className="w-6 h-6" />
-  </div>
-</div>
+          {/* Social Sign Up (non-functional for now) */}
+          <div className="flex justify-center space-x-4 mb-6">
+            <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full cursor-pointer shadow">
+              <img src="/images/facebook.jpg" alt="Facebook" className="w-6 h-6" />
+            </div>
+            <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full cursor-pointer shadow">
+              <img src="/images/google.jpg" alt="Google" className="w-6 h-6" />
+            </div>
+          </div>
 
           {/* Form */}
-          <form
-            className="space-y-4"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const form = e.target;
-              const payload = {
-                fullName: form.fullName.value,
-                email: form.email.value,
-                password: form.password.value,
-                type: userType,
-                phone: form.phone?.value,
-                company: form.company?.value,
-              };
-
-              const res = await fetch('/api/join', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              });
-
-              const result = await res.json();
-              alert(result.message || 'Joined!');
-              onClose();
-            }}
-          >
+          <form className="space-y-4" onSubmit={handleSignUp}>
             <div>
               <label className="block text-sm font-medium text-gray-700">Full Name</label>
               <input name="fullName" type="text" required className="w-full p-2 border rounded" />
