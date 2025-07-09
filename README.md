@@ -18,22 +18,30 @@ Tecnologias Utilizadas
 Páginas e Componentes Funcionais
 
 1. Home (/)
-• Hero Section 
+• Hero Section
+
 • Scrollable cards
+
 • Exibe as últimas notícias da indústria (via feed RSS e artigos manuais com prioridade).
+
 • Botões principais:
+
 • "Find Work" leva a lista de jobs postados por produtoras e criadores de conteudos
+
 • “Find Talents” leva à lista de talentos (perfis que fizeram sign up como talent)
+
 • “Post a Job” leva à criação de um job (requer login).
+
 • Header com avatar do usuário logado e 'Hello Usuario', botao Dashboard e botao Sign Out.
+
 • Footer com links básicos.
 
-2. Modal de Login e Cadastro (SignInModal e JoinModal)
+3. Modal de Login e Cadastro (SignInModal e JoinModal)
 • Modal com blur de fundo.
 • Alternância entre “Talent” e “Content Creator”.
 • Cadastro cria o usuário no Supabase Auth e insere dados na tabela profiles.
 
-3. Dashboards
+4. Dashboards
 • /talent-dashboard
 Painel para modelos visualizarem jobs, editar perfil, histórico etc.
 • /producer-dashboard
