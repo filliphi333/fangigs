@@ -260,16 +260,46 @@ export default function EditProfile() {
         <div className="w-px bg-gray-300" />
 
         {/* Right Section */}
-        <div className="w-1/4 space-y-4">
-          <input name="twitter_handle" placeholder="@Twitter" value={profile.twitter || ""} onChange={handleChange} className="w-full p-2 border rounded" />
-          <input name="instagram_handle" placeholder="@Instagram" value={profile.instagram || ""} onChange={handleChange} className="w-full p-2 border rounded" />
-          <input name="snapchat_handle" placeholder="@Snapchat" value={profile.snapchat || ""} onChange={handleChange} className="w-full p-2 border rounded" />
+<div className="w-1/4 space-y-4">
+  <input
+    name="twitter_handle"
+    placeholder="@Twitter"
+    value={profile.twitter_handle || ""}
+    onChange={handleChange}
+    className="w-full p-2 border rounded"
+  />
+  <input
+    name="instagram_handle"
+    placeholder="@Instagram"
+    value={profile.instagram_hanlde || ""}
+    onChange={handleChange}
+    className="w-full p-2 border rounded"
+  />
+  <input
+    name="snapchat_handle"
+    placeholder="@Snapchat"
+    value={profile.snapchat_handle || ""}
+    onChange={handleChange}
+    className="w-full p-2 border rounded"
+  />
 
-          <label className="flex items-center mt-4">
-            <input type="checkbox" name="is_public" checked={profile.is_public || false} onChange={handleChange} className="mr-2" />
-            Make Profile Public
-          </label>
-        </div>
+  <label className="flex items-center mt-4">
+    <input
+      type="checkbox"
+      name="is_public"
+      checked={profile.is_public || false}
+      onChange={handleChange}
+      className="mr-2"
+    />
+    Make Profile Public
+  </label>
+
+  <p className="text-xs text-gray-600">
+    Keeping your profile public allows producers and creators to discover you more easily while browsing the platform.
+    It increases your chances of getting hired, receiving job offers, and joining collaborations.
+    Public profiles appear in the “Find Talents” section and showcase your skills, experience, and professional photos.
+  </p>
+            </div>
       </div>
     </main>
   );
