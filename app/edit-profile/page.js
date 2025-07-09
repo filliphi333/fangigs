@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 const handleLogout = async () => {
   await supabase.auth.signOut();
-  window.location.href = '/'; // redirect to home or sign-in page
+  window.location.href = "/"; // redirect to home or sign-in page
 };
 
 export default function EditProfile() {
@@ -17,99 +17,102 @@ export default function EditProfile() {
   const [usernameError, setUsernameError] = useState("");
   const router = useRouter();
 
-useEffect(() => {
-  const fetchProfile = async () => {
-const { data: { user }, error: userError } = await supabase.auth.getUser();
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-if (userError || !user) {
-  console.error("No user signed in:", userError);
-  setLoading(false);
-  return;
-}
+      if (userError || !user) {
+        console.error("No user signed in:", userError);
+        setLoading(false);
+        return;
+      }
 
-const { data, error } = await supabase
-  .from("profiles")
-  .select("*")
-  .eq("id", user.id)
-  .single();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
 
-if (error) {
-  console.error("Profile fetch error:", error);
-} else {
-  setProfile({
-    ...data,
-    email: user.email, // ✅ Inject email from auth
-  });
-}
+      if (error) {
+        console.error("Profile fetch error:", error);
+      } else {
+        setProfile({
+          ...data,
+          email: user.email, // Inject email from auth
+        });
+      }
 
-    setLoading(false); // ✅ Always stop loading
-  };
+      setLoading(false); // Always stop loading
+    };
 
-  fetchProfile();
-}, []);
+    fetchProfile();
+  }, []);
 
   const handleChange = (e) => {
-  const { name, value, type, checked } = e.target;
-  setProfile((prev) => ({
-    ...prev,
-    [name]: type === "checkbox" ? checked : value,
-  }));
-};
-
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  setUpdating(true);
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    console.error("User not signed in:", authError);
-    alert("You must be signed in to update your profile.");
-    setUpdating(false);
-    return;
-  }
-
-  const updateData = {
-    full_name: profile.full_name,
-    vanity_username: profile.vanity_username,
-    bio: profile.bio,
-    birthday: profile.birthday,
-    height: profile.height,
-    gender: profile.gender,
-    hair_color: profile.hair_color,
-    sexual_orientation: profile.sexual_orientation,
-    camera_experience: profile.camera_experience,
-    twitter: profile.twitter_handle,
-    instagram: profile.instagram_handle,
-    snapchat: profile.snapchat_handle,
-    is_public: profile.is_public,
-    full_body_image_1: profile.full_body_image_1,
-    full_body_image_2: profile.full_body_image_2,
-    headshot_image: profile.headshot_image,
+    const { name, value, type, checked } = e.target;
+    setProfile((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
-  console.log("Updating profile for user ID:", user.id);
-  console.log("With data:", updateData);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setUpdating(true);
 
-  const { error } = await supabase
-    .from("profiles")
-    .update(updateData)
-    .eq("id", user.id);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (error) {
-      alert("Error updating profile");
-      console.error(error);
-    } else {
-      alert("Profile updated!");
-      if (profile.type === "creator") {
-        router.push("/producer-dashboard");
-      } else {
-        router.push("/talent-dashboard");
-      }
+    if (authError || !user) {
+      console.error("User not signed in:", authError);
+      alert("You must be signed in to update your profile.");
+      setUpdating(false);
+      return;
     }
+
+    const updateData = {
+      full_name: profile.full_name,
+      vanity_username: profile.vanity_username,
+      bio: profile.bio,
+      birthday: profile.birthday,
+      height: profile.height,
+      gender: profile.gender,
+      hair_color: profile.hair_color,
+      sexual_orientation: profile.sexual_orientation,
+      camera_experience: profile.camera_experience,
+      twitter_handle: profile.twitter_handle,
+      instagram_handle: profile.instagram_handle,
+      snapchat_handle: profile.snapchat_handle,
+      is_public: profile.is_public,
+      full_body_image_1: profile.full_body_image_1,
+      full_body_image_2: profile.full_body_image_2,
+      headshot_image: profile.headshot_image, // Ensure headshot_image is part of the data
+    };
+
+    console.log("Updating profile for user ID:", user.id);
+    console.log("With data:", updateData);
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update(updateData)
+        .eq("id", user.id);
+
+      if (error) {
+        alert("Error updating profile");
+        console.error("Supabase Error:", error);
+      } else {
+        alert("Profile updated!");
+        if (profile.type === "creator") {
+          router.push("/producer-dashboard");
+        } else {
+          router.push("/talent-dashboard");
+        }
+      }
+    } catch (err) {
+      console.error("Error during profile update:", err);
+      alert("There was an issue updating your profile.");
+    }
+
     setUpdating(false);
   };
 
@@ -117,9 +120,7 @@ if (error) {
     const file = event.target.files[0];
     if (!file) return;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       alert("You must be logged in to upload.");
       return;
@@ -128,28 +129,30 @@ if (error) {
     const extension = file.name.split(".").pop();
     const filePath = `${user.id}/${imageType}.${extension}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("user-images")
-      .upload(filePath, file, { upsert: true });
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true });
 
-    if (uploadError) {
-      console.error("Upload failed:", uploadError.message);
-      alert("Upload failed.");
-    } else {
-      alert("Upload successful!");
-      const updateData = {};
-      updateData[`${imageType}_url`] = filePath;
-
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update(updateData)
-        .eq("id", user.id);
-
-      if (updateError) {
-        console.error("Failed to update profile with image URL:", updateError.message);
+      if (uploadError) {
+        console.error("Upload failed:", uploadError.message);
+        alert("Upload failed.");
       } else {
-        setProfile((prev) => ({ ...prev, ...updateData }));
+        const imageUrl = filePath; // Use the file path as the image URL
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ [imageType]: imageUrl }) // Update the appropriate field
+          .eq("id", user.id);
+
+        if (updateError) {
+          console.error("Failed to update profile with image URL:", updateError.message);
+        } else {
+          setProfile((prev) => ({ ...prev, [imageType]: imageUrl })); // Update profile state
+        }
       }
+    } catch (err) {
+      console.error("Error during file upload:", err);
+      alert("There was an issue uploading the file.");
     }
   };
 
@@ -158,15 +161,13 @@ if (error) {
   const bucketURL = "https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars";
 
   return (
-    <>
-
-    <main className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#B5E2FF' }}>
+    <main className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: "#B5E2FF" }}>
       <div className="bg-white w-full max-w-6xl p-6 rounded-lg flex space-x-6">
         {/* Left Section */}
         <div className="w-1/4 flex flex-col items-center">
-          {profile.profile_picture_url ? (
+          {profile.headshot_image ? (
             <img
-              src={`${bucketURL}/${profile.profile_picture_url}`}
+              src={`${bucketURL}/${profile.headshot_image}`}
               alt="Profile"
               className="w-32 h-32 rounded-full object-cover mb-4"
             />
@@ -174,19 +175,38 @@ if (error) {
             <div className="w-32 h-32 bg-gray-200 rounded-full mb-4" />
           )}
 
-          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "profile_picture")} className="w-full p-1 border rounded mb-4" />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleImageUpload(e, "headshot_image")}
+            className="w-full p-1 border rounded mb-4"
+          />
 
           <p className="font-semibold">{profile.full_name || "Full Name"}</p>
           <p className="text-gray-500 text-sm">{profile.email || "user@email.com"}</p>
 
           <div className="w-full mt-8 space-y-3">
             <label className="block text-sm font-medium text-gray-700">Full Body Picture 1</label>
-            {profile.full_body_1_url && <img src={`${bucketURL}/${profile.full_body_1_url}`} className="w-full mb-2 rounded" alt="Full Body 1" />}
-            <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "full_body_1")} className="w-full p-1 border rounded" />
+            {profile.full_body_image_1 && (
+              <img src={`${bucketURL}/${profile.full_body_image_1}`} className="w-full mb-2 rounded" alt="Full Body 1" />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageUpload(e, "full_body_image_1")}
+              className="w-full p-1 border rounded"
+            />
 
             <label className="block text-sm font-medium text-gray-700">Full Body Picture 2</label>
-            {profile.full_body_2_url && <img src={`${bucketURL}/${profile.full_body_2_url}`} className="w-full mb-2 rounded" alt="Full Body 2" />}
-            <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "full_body_2")} className="w-full p-1 border rounded" />
+            {profile.full_body_image_2 && (
+              <img src={`${bucketURL}/${profile.full_body_image_2}`} className="w-full mb-2 rounded" alt="Full Body 2" />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageUpload(e, "full_body_image_2")}
+              className="w-full p-1 border rounded"
+            />
           </div>
         </div>
 
@@ -202,30 +222,7 @@ if (error) {
             <input
               name="vanity_username"
               value={profile.vanity_username || ""}
-              onChange={(e) => {
-                const value = e.target.value;
-                const isValid = /^[a-z0-9-]+$/.test(value);
-                setUsernameError("");
-                if (!isValid && value !== "") {
-                  setUsernameError("Only lowercase letters, numbers, and dashes are allowed.");
-                } else {
-                  handleChange(e);
-                }
-              }}
-              onBlur={async (e) => {
-                const value = e.target.value;
-                if (value) {
-                  const { data } = await supabase
-                    .from("profiles")
-                    .select("id")
-                    .eq("vanity_username", value)
-                    .neq("id", profile.id);
-
-                  if (data?.length > 0) {
-                    setUsernameError("This username is taken.");
-                  }
-                }
-              }}
+              onChange={handleChange}
               className="w-full p-2 border rounded"
               placeholder="e.g., sashasmith"
             />
@@ -275,6 +272,5 @@ if (error) {
         </div>
       </div>
     </main>
-    </>
   );
 }

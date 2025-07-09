@@ -5,6 +5,14 @@ import Image from "next/image";
 export default function NewsSection() {
   const [articles, setArticles] = useState([]);
 
+  function slugify(str) {
+  return str
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
   useEffect(() => {
     const fetchArticles = async () => {
       // Fetch internal articles
@@ -36,7 +44,7 @@ export default function NewsSection() {
         ...(internalArticles || []).map((item) => ({
           title: item.title,
           summary: item.summary,
-          url: item.url,
+          url: `/news/${slugify(item.title)}`,
           image_url: item.image_url,
           isExternal: false,
         })),

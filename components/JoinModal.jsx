@@ -27,36 +27,52 @@ const handleSignUp = async (e) => {
   });
 
   if (error) {
-    alert('Signup failed: ' + error.message);
+    alert("Signup failed: " + error.message);
     return;
   }
 
-  if (data.user) {
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: data.user.id,
-        full_name: payload.fullName,
-        type: payload.type,
-        phone: payload.phone,
-        company: payload.company,
-      });
+  const user = data?.user;
+  if (!user) {
+    console.error("Signup succeeded but no user returned:", data);
+    alert("Signup failed: no user returned.");
+    return;
+  }
+
+  // ✅ Check if profile already exists
+  const { data: existingProfile, error: fetchError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .single();
+
+  if (!existingProfile) {
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: user.id,
+      full_name: payload.fullName,
+      email: user.email, // ✅ added line
+      type: payload.type,
+      phone: payload.phone,
+      company: payload.company,
+    });
 
     if (profileError) {
-      console.error('Profile insertion error:', profileError);
-      alert('Profile creation failed. Please try again.');
+      console.error("Profile insertion error:", profileError);
+      alert("Profile creation failed. Please try again.");
       return;
     }
-
-    // Redirect based on user type
-    if (payload.type === 'creator') {
-      window.location.href = '/producer-dashboard';
-    } else {
-      window.location.href = '/talent-dashboard';
-    }
-
-    onClose(); // Close modal only after successful signup and redirect
   }
+
+  // ✅ Set session tracking
+  localStorage.setItem("user_type", payload.type);
+
+  // ✅ Redirect
+  if (payload.type === "creator") {
+    window.location.href = "/producer-dashboard";
+  } else {
+    window.location.href = "/talent-dashboard";
+  }
+
+  onClose();
 };
 
   return (

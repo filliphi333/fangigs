@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import SignInModal from "../../components/SignInModal"; // Adjust path if needed
 
 export default function PostJob() {
   const [form, setForm] = useState({
@@ -16,11 +17,28 @@ export default function PostJob() {
     tags: [],
   });
 
+  const [isSignInModalOpen, setSignInModalOpen] = useState(false); // <-- Define the state here
+
   const predefinedTags = [
     "Straight", "Gay for Pay", "Collab", "Onlyfans", "Athletic", "Stud",
     "Lesbian", "Orgy", "Gangbang", "Bareback", "Blonde", "Redhead",
-    "Brunette", "Asian", "Black", "MILF", "Outdoor", "Teen", "Amateur", "Gay", "Bissexual", "DILF", "Chubby", "Feet", "Anal", "DP", "BDSM", "Cameraman", "Editor",
+    "Brunette", "Asian", "Black", "MILF", "Outdoor", "Amateur", "Gay", "Bissexual", "DILF", "Chubby", "Feet", "Anal", "DP", "BDSM", "Cameraman", "Editor",
   ];
+
+  const router = useRouter();
+
+  // Check if the user is logged in before allowing access to the page
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+
+      if (error || !user) {
+        setSignInModalOpen(true); // Open sign-in modal if not logged in
+      }
+    };
+
+    fetchUser();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -72,7 +90,6 @@ export default function PostJob() {
 
   return (
     <>
-
       <main className="max-w-3xl mx-auto py-10 px-4">
         <h1 className="text-2xl font-bold mb-6">Post a New Job</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -157,6 +174,9 @@ export default function PostJob() {
           </button>
         </form>
       </main>
+
+      {/* Sign In Modal */}
+      <SignInModal isOpen={isSignInModalOpen} onClose={() => setSignInModalOpen(false)} />
     </>
   );
 }
