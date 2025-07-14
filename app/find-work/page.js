@@ -13,7 +13,7 @@ export default function FindWork() {
       const { data, error } = await supabase
         .from("job_postings")
         .select("*")
-        .gte("expiration_date", new Date().toISOString()) // show only non-expired jobs
+        .gte("expiration", new Date().toISOString()) // show only non-expired jobs
         .order("created_at", { ascending: false });
 
       if (error) {

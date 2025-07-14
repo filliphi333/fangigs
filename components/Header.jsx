@@ -35,18 +35,12 @@ export default function Header() {
 
   return (
     <header className="bg-white border-b border-gray-300">
-      <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+      <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center">
         <div className="flex items-center space-x-8 whitespace-nowrap">
           {/* FANGIGS Logo Image as a Home Button */}
-          <Link href="/" className="cursor-pointer">
-            <Image 
-              src="/images/logo.png" // Replace with the actual path to your logo image
-              alt="FanGigs Logo"
-              width={120} // Set the desired width of the logo
-              height={80} // Set the desired height of the logo
-              className="object-contain" // Ensures the image scales correctly inside its container
-            />
-          </Link>
+           <Link href="/" className="text-5xl font-extrabold bg-gradient-to-b from-blue-600 via-purple-500 to-red-500 text-transparent bg-clip-text">
+  <span translate="no">FANGIGS</span>
+</Link>
 
           <nav className="flex items-center space-x-4">
             <Link href="/find-work" className="text-black font-semibold px-2 py-1 rounded hover:bg-blue-100 hover:text-blue-900 transition">Find Work</Link>
@@ -60,15 +54,28 @@ export default function Header() {
             <Link href={profile.type === 'creator' ? '/producer-dashboard' : '/talent-dashboard'}>
               <button className="bg-blue-800 text-white px-4 py-2 rounded font-bold hover:bg-blue-900 transition">Dashboard</button>
             </Link>
-            <Link href={`/profile/${profile.vanity_username}`}>
-              <Image
-                src={profile.headshot_image ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}` : '/images/default-avatar.png'}
-                alt="Avatar"
-                width={40}
-                height={40}
-                className="rounded-full border"
-              />
-            </Link>
+            {profile?.vanity_username ? (
+  <Link href={`/profile/${profile.vanity_username}`}>
+    <Image
+      src={profile.headshot_image
+        ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}`
+        : '/placeholder-avatar.png'}
+      alt="Avatar"
+      width={40}
+      height={40}
+      className="rounded-full border"
+    />
+  </Link>
+) : (
+  <Image
+    src="/placeholder-avatar.png"
+    alt="Avatar"
+    width={40}
+    height={40}
+    className="rounded-full border opacity-50"
+    title="Set your username to activate your profile"
+  />
+)}
             <span className="font-medium text-gray-800">Hello {profile.full_name}</span>
             <button
               onClick={handleLogout}

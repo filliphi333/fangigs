@@ -21,3 +21,6 @@ Thumbs.db
 
 # IDE files (if using Visual Studio Code, for example)
 .vscode/
+
+# Ignore font-awesome brands
+**/fa-brands*

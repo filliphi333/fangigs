@@ -17,7 +17,7 @@ export default function PostJob() {
     tags: [],
   });
 
-  const [isSignInModalOpen, setSignInModalOpen] = useState(false); // <-- Define the state here
+  const [isSignInModalOpen, setSignInModalOpen] = useState(false);
 
   const predefinedTags = [
     "Straight", "Gay for Pay", "Collab", "Onlyfans", "Athletic", "Stud",
@@ -25,18 +25,19 @@ export default function PostJob() {
     "Brunette", "Asian", "Black", "MILF", "Outdoor", "Amateur", "Gay", "Bissexual", "DILF", "Chubby", "Feet", "Anal", "DP", "BDSM", "Cameraman", "Editor",
   ];
 
+  const slugify = (text) =>
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+
   const router = useRouter();
 
-  // Check if the user is logged in before allowing access to the page
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user }, error } = await supabase.auth.getUser();
-
-      if (error || !user) {
-        setSignInModalOpen(true); // Open sign-in modal if not logged in
-      }
+      if (error || !user) setSignInModalOpen(true);
     };
-
     fetchUser();
   }, []);
 
@@ -59,17 +60,26 @@ export default function PostJob() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { error } = await supabase.from("job_postings").insert([
-      {
-        title: form.title,
-        description: form.description,
-        location: form.location,
-        pay: form.isPayConfidential ? null : form.pay,
-        is_pay_confidential: form.isPayConfidential,
-        expiration: form.expiration,
-        tags: form.tags,
-      },
-    ]);
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      alert("You must be logged in to post a job.");
+      return;
+    }
+
+    const slug = slugify(form.title);
+
+    const { error } = await supabase.from("job_postings").insert([{
+      title: form.title,
+      description: form.description,
+      location: form.location,
+      pay: form.isPayConfidential ? null : form.pay,
+      is_pay_confidential: form.isPayConfidential,
+      expiration: form.expiration,
+      tags: form.tags,
+      slug: slug,
+      creator_id: user.id,
+    }]);
 
     if (error) {
       alert("Error posting job");
@@ -175,7 +185,6 @@ export default function PostJob() {
         </form>
       </main>
 
-      {/* Sign In Modal */}
       <SignInModal isOpen={isSignInModalOpen} onClose={() => setSignInModalOpen(false)} />
     </>
   );

@@ -7,17 +7,31 @@ import NewsSection from "../components/NewsSection";
 import HeroSection from "../components/HeroSection"; // Import HeroSection
 import Link from 'next/link';
 import Image from 'next/image';
+import { supabase } from '../lib/supabase';   // ← add this
 
 export default function Home() {
   const [isJoinOpen, setJoinOpen] = useState(false);
   const [isSignInOpen, setSignInOpen] = useState(false);
   const router = useRouter();
+  const [trendingJobs, setTrendingJobs] = useState([]);
 
   useEffect(() => {
-    const type = localStorage.getItem('user_type');
-    if (type === 'creator') router.push('/producer-dashboard');
-    else if (type === 'talent') router.push('/profile-dashboard');
-  }, []);
+  const fetchTrending = async () => {
+    const { data, error } = await supabase
+      .from('job_postings')
+      .select('id, slug, title, location, pay')          // pick only what we need
+      .order('created_at', { ascending: false })
+      .limit(3);
+
+    if (error) {
+      console.error('Trending jobs error:', error);
+    } else {
+      setTrendingJobs(data);
+    }
+  };
+
+  fetchTrending();
+}, []);
 
   function scroll(direction) {
     const container = document.getElementById('roleScroll');
@@ -83,22 +97,37 @@ export default function Home() {
 
       {/* Trending Roles */}
       <section className="bg-pink-500 w-full py-6 px-4">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-white text-2xl font-bold mb-4">Trending Roles</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-            <div className="bg-white p-4 rounded shadow text-black">Female Model for Beach Shoot – Miami, FL – $800/day</div>
-            <div className="bg-white p-4 rounded shadow text-black">OnlyFans Videographer – Los Angeles – $500/session</div>
-            <div className="bg-white p-4 rounded shadow text-black">LGBTQ Male Model – NYC – $250/hr</div>
-          </div>
-          <div className="text-center">
-            <Link href="/find-work">
-              <button className="bg-pink-700 text-white font-semibold px-6 py-2 rounded hover:bg-pink-800 transition">
-                Find More Jobs
-              </button>
-            </Link>
-          </div>
-        </div>
-      </section>
+  <div className="max-w-7xl mx-auto">
+    <h2 className="text-white text-2xl font-bold mb-4">Trending Roles</h2>
+
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      {trendingJobs.length === 0 && (
+        <p className="text-white">No jobs yet — check back soon!</p>
+      )}
+
+      {trendingJobs.map((job) => (
+        <Link
+          key={job.id}
+          href={`/job/${job.slug}`}
+          className="bg-white p-4 rounded shadow hover:shadow-lg transition text-black"
+        >
+          <p className="font-semibold">{job.title}</p>
+          {job.location && <p className="text-sm">{job.location}</p>}
+          {job.pay && <p className="text-sm">{job.pay}</p>}
+        </Link>
+      ))}
+    </div>
+
+    <div className="text-center">
+      <Link href="/find-work">
+        <button className="bg-pink-700 text-white font-semibold px-6 py-2 rounded hover:bg-pink-800 transition">
+          Find More Jobs
+        </button>
+      </Link>
+    </div>
+  </div>
+</section>
+
 
       <NewsSection />
 

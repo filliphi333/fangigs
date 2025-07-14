@@ -1,79 +1,72 @@
 'use client';
 import { useState } from 'react';
 import Image from 'next/image';
-import { supabase } from '../lib/supabase'; // adjust path if needed
+import { supabase } from '../lib/supabase';
 
 export default function JoinModal({ isOpen, onClose }) {
-  const [userType, setUserType] = useState('talent'); // 'talent' or 'creator'
+  const [userType, setUserType] = useState('talent');
 
   if (!isOpen) return null;
 
-const handleSignUp = async (e) => {
-  e.preventDefault();
-  const form = e.target;
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    const form = e.target;
 
-  const payload = {
-    fullName: form.fullName.value,
-    email: form.email.value,
-    password: form.password.value,
-    type: userType,
-    phone: form.phone?.value || null,
-    company: form.company?.value || null,
-  };
+    const payload = {
+      fullName: form.fullName.value,
+      email: form.email.value,
+      password: form.password.value,
+      type: userType,
+      phone: form.phone?.value || null,
+      company: form.company?.value || null,
+    };
 
-  const { data, error } = await supabase.auth.signUp({
-    email: payload.email,
-    password: payload.password,
-  });
-
-  if (error) {
-    alert("Signup failed: " + error.message);
-    return;
-  }
-
-  const user = data?.user;
-  if (!user) {
-    console.error("Signup succeeded but no user returned:", data);
-    alert("Signup failed: no user returned.");
-    return;
-  }
-
-  // ✅ Check if profile already exists
-  const { data: existingProfile, error: fetchError } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .single();
-
-  if (!existingProfile) {
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: user.id,
-      full_name: payload.fullName,
-      email: user.email, // ✅ added line
-      type: payload.type,
-      phone: payload.phone,
-      company: payload.company,
+    const { data, error } = await supabase.auth.signUp({
+      email: payload.email,
+      password: payload.password,
     });
 
-    if (profileError) {
-      console.error("Profile insertion error:", profileError);
-      alert("Profile creation failed. Please try again.");
+    if (error) {
+      alert("Signup failed: " + error.message);
       return;
     }
-  }
 
-  // ✅ Set session tracking
-  localStorage.setItem("user_type", payload.type);
+    const user = data?.user;
+    if (!user) {
+      console.error("Signup succeeded but no user returned:", data);
+      alert("Signup failed: no user returned.");
+      return;
+    }
 
-  // ✅ Redirect
-  if (payload.type === "creator") {
-    window.location.href = "/producer-dashboard";
-  } else {
-    window.location.href = "/talent-dashboard";
-  }
-
-  onClose();
+    const profilePayload = {
+  id: user.id,
+  full_name: payload.fullName,
+  email: user.email,
+  type: payload.type,
+  phone: payload.phone,
+  company: payload.company,
+  created_at: new Date().toISOString(),
 };
+
+if (payload.vanity_username) {
+  profilePayload.vanity_username = payload.vanity_username;
+}
+
+const { error: profileError } = await supabase.from("profiles").upsert(profilePayload);
+
+    if (profileError) {
+      console.error("Profile creation failed:", profileError);
+      alert("Could not create profile.");
+      return;
+    }
+
+    localStorage.setItem("user_type", payload.type);
+
+    // ✅ Redirect to profile setup
+    window.location.href = "/edit-profile";
+
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/50">
@@ -102,9 +95,7 @@ const handleSignUp = async (e) => {
           <div className="mb-6 flex justify-center space-x-4">
             <button
               className={`px-4 py-2 rounded-full font-medium transition ${
-                userType === 'talent'
-                  ? 'bg-[#E8967BCC] text-white'
-                  : 'bg-gray-200 text-black'
+                userType === 'talent' ? 'bg-[#E8967BCC] text-white' : 'bg-gray-200 text-black'
               }`}
               onClick={() => setUserType('talent')}
             >
@@ -112,9 +103,7 @@ const handleSignUp = async (e) => {
             </button>
             <button
               className={`px-4 py-2 rounded-full font-medium transition ${
-                userType === 'creator'
-                  ? 'bg-[#E8967BCC] text-white'
-                  : 'bg-gray-200 text-black'
+                userType === 'creator' ? 'bg-[#E8967BCC] text-white' : 'bg-gray-200 text-black'
               }`}
               onClick={() => setUserType('creator')}
             >

@@ -1,50 +1,35 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 
-const handleLogout = async () => {
-  await supabase.auth.signOut();
-  window.location.href = "/"; // redirect to home or sign-in page
-};
+const DEFAULT_COVER_IMAGES = [
+  "default1.jpg","default2.jpg","default3.jpg","default4.jpg","default5.jpg",
+  "default6.jpg","default7.jpg","default8.jpg","default9.jpg","default10.jpg",
+  "default11.jpg","default12.jpg","default13.jpg","default14.jpg","default15.jpg"
+];
 
 export default function EditProfile() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState({});
   const [updating, setUpdating] = useState(false);
-  const [usernameError, setUsernameError] = useState("");
+  const [coverModalOpen, setCoverModalOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        console.error("No user signed in:", userError);
-        setLoading(false);
-        return;
-      }
-
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
-
-      if (error) {
-        console.error("Profile fetch error:", error);
-      } else {
-        setProfile({
-          ...data,
-          email: user.email, // Inject email from auth
-        });
+      if (!error) {
+        setProfile({ ...data, is_public: data.is_public ?? true });
       }
-
-      setLoading(false); // Always stop loading
+      setLoading(false);
     };
-
     fetchProfile();
   }, []);
 
@@ -56,20 +41,43 @@ export default function EditProfile() {
     }));
   };
 
+  const handleImageUpload = async (e, imageType) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    const extension = file.name.split(".").pop();
+    const path = `${user.id}/${imageType}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type,
+      });
+    if (!uploadError) {
+      await supabase
+        .from("profiles")
+        .update({ [imageType]: path })
+        .eq("id", user.id);
+      setProfile(prev => ({ ...prev, [imageType]: path }));
+    }
+  };
+
+  const handleCoverSelect = async (filename) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase
+      .from("profiles")
+      .update({ cover_image: filename })
+      .eq("id", user.id);
+    setProfile(prev => ({ ...prev, cover_image: filename }));
+    setCoverModalOpen(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setUpdating(true);
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      console.error("User not signed in:", authError);
-      alert("You must be signed in to update your profile.");
-      setUpdating(false);
-      return;
-    }
-
-    const updateData = {
+    const { data: { user } } = await supabase.auth.getUser();
+    const updates = {
       full_name: profile.full_name,
       vanity_username: profile.vanity_username,
       bio: profile.bio,
@@ -79,228 +87,197 @@ export default function EditProfile() {
       hair_color: profile.hair_color,
       sexual_orientation: profile.sexual_orientation,
       camera_experience: profile.camera_experience,
-      twitter_handle: profile.twitter_handle,
       instagram_handle: profile.instagram_handle,
+      twitter_handle: profile.twitter_handle,
       snapchat_handle: profile.snapchat_handle,
       is_public: profile.is_public,
+      cover_image: profile.cover_image,
+      headshot_image: profile.headshot_image,
       full_body_image_1: profile.full_body_image_1,
       full_body_image_2: profile.full_body_image_2,
-      headshot_image: profile.headshot_image, // Ensure headshot_image is part of the data
     };
-
-    console.log("Updating profile for user ID:", user.id);
-    console.log("With data:", updateData);
-
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update(updateData)
-        .eq("id", user.id);
-
-      if (error) {
-        alert("Error updating profile");
-        console.error("Supabase Error:", error);
-      } else {
-        alert("Profile updated!");
-        if (profile.type === "creator") {
-          router.push("/producer-dashboard");
-        } else {
-          router.push("/talent-dashboard");
-        }
-      }
-    } catch (err) {
-      console.error("Error during profile update:", err);
-      alert("There was an issue updating your profile.");
+    const { error } = await supabase
+  .from("profiles")
+  .upsert([{ id: user.id, ...updates }], { onConflict: "id" });
+    if (!error) {
+      alert("Profile updated!");
+      router.push("/profile/" + updates.vanity_username);
     }
-
     setUpdating(false);
   };
 
-  const handleImageUpload = async (event, imageType) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert("You must be logged in to upload.");
-      return;
-    }
-
-    const extension = file.name.split(".").pop();
-    const filePath = `${user.id}/${imageType}.${extension}`;
-
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        console.error("Upload failed:", uploadError.message);
-        alert("Upload failed.");
-      } else {
-        const imageUrl = filePath; // Use the file path as the image URL
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update({ [imageType]: imageUrl }) // Update the appropriate field
-          .eq("id", user.id);
-
-        if (updateError) {
-          console.error("Failed to update profile with image URL:", updateError.message);
-        } else {
-          setProfile((prev) => ({ ...prev, [imageType]: imageUrl })); // Update profile state
-        }
-      }
-    } catch (err) {
-      console.error("Error during file upload:", err);
-      alert("There was an issue uploading the file.");
-    }
-  };
+  const bucketURL = "https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars";
 
   if (loading) return <p>Loading...</p>;
 
-  const bucketURL = "https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars";
-
   return (
-    <main className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: "#B5E2FF" }}>
-      <div className="bg-white w-full max-w-6xl p-6 rounded-lg flex space-x-6">
-        {/* Left Section */}
-        <div className="w-1/4 flex flex-col items-center">
-          {profile.headshot_image ? (
-            <img
-              src={`${bucketURL}/${profile.headshot_image}`}
-              alt="Profile"
-              className="w-32 h-32 rounded-full object-cover mb-4"
-            />
-          ) : (
-            <div className="w-32 h-32 bg-gray-200 rounded-full mb-4" />
-          )}
+    <main className="min-h-screen bg-gray-100 p-6">
+      <form
+        onSubmit={handleSubmit}
+        className="max-w-4xl mx-auto bg-white p-6 rounded shadow"
+      >
+        <h1 className="text-xl font-bold mb-4">Edit Profile</h1>
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => handleImageUpload(e, "headshot_image")}
-            className="w-full p-1 border rounded mb-4"
-          />
-
-          <p className="font-semibold">{profile.full_name || "Full Name"}</p>
-          <p className="text-gray-500 text-sm">{profile.email || "user@email.com"}</p>
-
-          <div className="w-full mt-8 space-y-3">
-            <label className="block text-sm font-medium text-gray-700">Full Body Picture 1</label>
-            {profile.full_body_image_1 && (
-              <img src={`${bucketURL}/${profile.full_body_image_1}`} className="w-full mb-2 rounded" alt="Full Body 1" />
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleImageUpload(e, "full_body_image_1")}
-              className="w-full p-1 border rounded"
-            />
-
-            <label className="block text-sm font-medium text-gray-700">Full Body Picture 2</label>
-            {profile.full_body_image_2 && (
-              <img src={`${bucketURL}/${profile.full_body_image_2}`} className="w-full mb-2 rounded" alt="Full Body 2" />
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleImageUpload(e, "full_body_image_2")}
-              className="w-full p-1 border rounded"
-            />
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="w-px bg-gray-300" />
-
-        {/* Middle Section */}
-        <div className="w-2/4 space-y-4">
-          <h1 className="text-xl font-bold mb-4">Edit Your Profile</h1>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Username</label>
-            <input
-              name="vanity_username"
-              value={profile.vanity_username || ""}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              placeholder="e.g., sashasmith"
-            />
-            {usernameError && <p className="text-sm text-red-500 mt-1">{usernameError}</p>}
-          </div>
-
-          <input name="full_name" placeholder="Full Name" value={profile.full_name || ""} onChange={handleChange} className="w-full p-2 border rounded" />
-          <textarea name="bio" placeholder="Short bio..." value={profile.bio || ""} onChange={handleChange} className="w-full p-2 border rounded" />
-
-          <div className="flex items-center space-x-2">
-            <input type="date" name="birthday" value={profile.birthday || ""} onChange={handleChange} className="p-2 border rounded" />
-            <span className="text-sm text-gray-600">Birthday</span>
-          </div>
-
-          <input name="height" placeholder="Height" value={profile.height || ""} onChange={handleChange} className="w-full p-2 border rounded" />
-          <input name="gender" placeholder="Gender (optional)" value={profile.gender || ""} onChange={handleChange} className="w-full p-2 border rounded" />
-          <input name="hair_color" placeholder="Hair Color" value={profile.hair_color || ""} onChange={handleChange} className="w-full p-2 border rounded" />
-          <input name="sexual_orientation" placeholder="Sexual Orientation" value={profile.sexual_orientation || ""} onChange={handleChange} className="w-full p-2 border rounded" />
-
-          <label className="flex items-center">
-            <input type="checkbox" name="camera_experience" checked={profile.camera_experience || false} onChange={handleChange} className="mr-2" />
-            Experienced on Camera
-          </label>
-
-          <div className="flex space-x-4 mt-4">
-            <button type="submit" onClick={handleSubmit} disabled={updating} className="bg-[#E8967B] text-white px-4 py-2 rounded hover:opacity-90">
-              {updating ? "Saving..." : "Save Profile"}
-            </button>
-            <button className="bg-[#04BADE] text-white px-4 py-2 rounded hover:bg-blue-700">Change Password</button>
-            <button className="bg-[#ff2c2c] text-white px-4 py-2 rounded hover:bg-[#c30010]">Deactivate Account</button>
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="w-px bg-gray-300" />
-
-        {/* Right Section */}
-<div className="w-1/4 space-y-4">
-  <input
-    name="twitter_handle"
-    placeholder="@Twitter"
-    value={profile.twitter_handle || ""}
-    onChange={handleChange}
-    className="w-full p-2 border rounded"
-  />
-  <input
-    name="instagram_handle"
-    placeholder="@Instagram"
-    value={profile.instagram_hanlde || ""}
-    onChange={handleChange}
-    className="w-full p-2 border rounded"
-  />
-  <input
-    name="snapchat_handle"
-    placeholder="@Snapchat"
-    value={profile.snapchat_handle || ""}
-    onChange={handleChange}
-    className="w-full p-2 border rounded"
-  />
-
-  <label className="flex items-center mt-4">
-    <input
-      type="checkbox"
-      name="is_public"
-      checked={profile.is_public || false}
-      onChange={handleChange}
-      className="mr-2"
+        {/* Cover with overlapping Avatar */}
+<div className="mb-6 relative">
+  {profile.cover_image ? (
+    <img
+      src={
+        profile.cover_image.startsWith("default")
+          ? `/images/covers/${profile.cover_image}`
+          : `${bucketURL}/${profile.cover_image}`
+      }
+      alt="Cover"
+      className="object-cover object-center w-full h-48 sm:h-64 rounded"
     />
-    Make Profile Public
-  </label>
+  ) : (
+    <div className="w-full h-48 sm:h-64 bg-gray-300 rounded flex items-center justify-center text-gray-600">
+      No Cover Image
+    </div>
+  )}
 
-  <p className="text-xs text-gray-600">
-    Keeping your profile public allows producers and creators to discover you more easily while browsing the platform.
-    It increases your chances of getting hired, receiving job offers, and joining collaborations.
-    Public profiles appear in the “Find Talents” section and showcase your skills, experience, and professional photos.
-  </p>
+  {/* Avatar */}
+  {profile.headshot_image && (
+    <img
+      src={`${bucketURL}/${profile.headshot_image}`}
+      alt="Avatar"
+      className="absolute w-72 h-72 rounded-full object-cover border-4 border-white left-6 -bottom-16 shadow-md z-10"
+    />
+  )}
+
+  <button
+    type="button"
+    className="absolute top-2 right-2 bg-white px-3 py-1 text-sm border rounded shadow"
+    onClick={() => setCoverModalOpen(true)}
+  >
+    Change Cover
+  </button>
+</div>
+
+        <input name="full_name" placeholder="Full Name" value={profile.full_name || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+        <p className="text-xs text-gray-500 mb-3">Your real or stage name</p>
+
+        <input name="vanity_username" placeholder="Username" value={profile.vanity_username || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+        <p className="text-xs text-gray-500 mb-3">Appears in your URL</p>
+
+        <textarea name="bio" placeholder="Tell us about yourself..." value={profile.bio || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+        <p className="text-xs text-gray-500 mb-3">Share experience, interests</p>
+
+        <label className="block text-sm font-medium mb-1">Height (cm)</label>
+        <input type="number" name="height" min="120" max="250" value={profile.height || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+        <p className="text-xs text-gray-500 mb-3">Used for casting filters</p>
+
+        <input name="birthday" type="date" value={profile.birthday || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+        <input name="gender" placeholder="Gender" value={profile.gender || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+        <input name="hair_color" placeholder="Hair Color" value={profile.hair_color || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+        <input name="sexual_orientation" placeholder="Sexual Orientation" value={profile.sexual_orientation || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+
+        <select name="camera_experience" value={profile.camera_experience || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1">
+          <option value="">Camera Experience</option>
+          <option>No Experience</option>
+          <option>Beginner</option>
+          <option>Intermediate</option>
+          <option>Pro</option>
+        </select>
+
+        <h2 className="text-lg font-semibold mt-8 mb-2">Photos</h2>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1">Head-shot (Avatar)</label>
+          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "headshot_image")} />
+          {profile.headshot_image && <img src={`${bucketURL}/${profile.headshot_image}`} alt="Avatar" className="mt-2 w-24 h-24 object-cover rounded-full" />}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1">Full-body Photo 1</label>
+          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "full_body_image_1")} />
+          {profile.full_body_image_1 && <img src={`${bucketURL}/${profile.full_body_image_1}`} alt="Body 1" className="mt-2 w-32 h-48 object-cover rounded" />}
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium mb-1">Full-body Photo 2</label>
+          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "full_body_image_2")} />
+          {profile.full_body_image_2 && <img src={`${bucketURL}/${profile.full_body_image_2}`} alt="Body 2" className="mt-2 w-32 h-48 object-cover rounded" />}
+        </div>
+
+        <input name="instagram_handle" placeholder="Instagram URL" value={profile.instagram_handle || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+        <input name="twitter_handle" placeholder="Twitter URL" value={profile.twitter_handle || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+        <input name="snapchat_handle" placeholder="Snapchat URL" value={profile.snapchat_handle || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
+
+        <div className="flex items-start mb-6 mt-4">
+          <input type="checkbox" checked={!profile.is_public} onChange={(e) => setProfile(prev => ({ ...prev, is_public: !e.target.checked }))} className="mt-1 mr-2" />
+          <div>
+            <label className="font-medium">Make Profile Anonymous</label>
+            <p className="text-xs text-gray-500">
+              Making your profile public significantly increases your chances of getting noticed and hired.
+              When your profile is public, producers and casting directors can discover you through search, 
+              filter by your characteristics, and even bookmark you for future roles.
+              Public profiles are more likely to receive invites to exclusive castings or custom content requests — sometimes without you even applying.
+              <br /><br />
+              In contrast, anonymous profiles are hidden from search results and only become visible after you apply for a gig.
+              This means fewer eyes on your profile and more effort needed to find work.
+            </p>
+          </div>
+        </div>
+
+       <div className="flex justify-end mt-6 gap-4">
+  <button
+    type="submit"
+    className="bg-blue-600 text-white font-semibold px-6 py-2 rounded hover:bg-blue-700"
+    disabled={updating}
+  >
+    {updating ? "Saving..." : "Save Profile"}
+  </button>
+
+  <button
+    type="button"
+    onClick={() => router.push("/change-password")}
+    className="bg-yellow-500 text-white font-semibold px-6 py-2 rounded hover:bg-yellow-600"
+  >
+    Change Password
+  </button>
+
+  <button
+    type="button"
+    onClick={async () => {
+      const confirm = window.confirm("Are you sure you want to deactivate your account?");
+      if (!confirm) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from("profiles").delete().eq("id", user.id);
+      await supabase.auth.signOut();
+      router.push("/");
+    }}
+    className="bg-red-600 text-white font-semibold px-6 py-2 rounded hover:bg-red-700"
+  >
+    Deactivate Account
+  </button>
+</div>
+</form>
+
+      {coverModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded p-6 max-w-lg w-full">
+            <h2 className="text-lg font-bold mb-4">Choose a Cover Image</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-80 overflow-y-auto">
+              {DEFAULT_COVER_IMAGES.map((img) => (
+                <img
+                  key={img}
+                  src={`/images/covers/${img}`}
+                  alt={img}
+                  className="rounded shadow cursor-pointer hover:opacity-80"
+                  onClick={() => handleCoverSelect(img)}
+                />
+              ))}
             </div>
-      </div>
+            <p className="mt-4 text-sm">Or upload your own:</p>
+            <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "cover_image")} />
+            <button type="button" className="mt-4 text-sm text-blue-600 underline" onClick={() => setCoverModalOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
