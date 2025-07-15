@@ -13,11 +13,13 @@ export default function Footer() {
         <div className="mb-6">
           <p>Contact us at <a href="mailto:contact@fan-gigs.com" className="text-red-400 hover:text-red-600">contact@fan-gigs.com</a></p>
         </div>
+        
         <div className="mb-6">
-          <Link href="/about" className="text-red-400 hover:text-red-600 mx-2">About</Link>
-          <Link href="/privacy" className="text-red-400 hover:text-red-600 mx-2">Privacy Policy</Link>
-          <Link href="/terms" className="text-red-400 hover:text-red-600 mx-2">Terms of Use</Link>
-        </div>
+  <Link href="/about" className="text-red-400 hover:text-red-600 mx-2">About</Link>
+  <Link href="/privacy" className="text-red-400 hover:text-red-600 mx-2">Privacy Policy</Link>
+  <Link href="/terms" className="text-red-400 hover:text-red-600 mx-2">Terms of Use</Link>
+  <Link href="/faq" className="text-red-400 hover:text-red-600 mx-2">FAQ</Link>
+</div>
         <form className="max-w-sm mx-auto">
           <label htmlFor="newsletter" className="block text-sm font-medium text-gray-300 mb-2">Subscribe to our newsletter</label>
           <div className="flex">
