@@ -3,84 +3,82 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import Link from 'next/link';
 
-/* ── Predefined tag list (expand as you like) ── */
+const PAGE_SIZE = 20;
+
 const TAG_OPTIONS = [
   'Model', 'Photographer', 'Cameraman', 'Editor',
   'Makeup Artist', 'BDSM Friendly', 'Feet', 'Trans'
 ];
 
-/* ───────────────────────────────────────────── */
 export default function FindTalent() {
-  const [models, setModels]      = useState([]);
-  const [gender,  setGender]     = useState('');
-  const [search,  setSearch]     = useState('');      // free-text search
-  const [tags,    setTags]       = useState([]);      // array of selected tags
-  const [loading, setLoading]    = useState(false);
+  const [models, setModels] = useState([]);
+  const [gender, setGender] = useState('');
+  const [search, setSearch] = useState('');
+  const [tags, setTags] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [ageRange, setAgeRange] = useState({ min: 18, max: 100 });
 
-  /* ── toggle tag checkboxes ── */
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
   const toggleTag = (tag) => {
     setTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
   };
 
- const fetchModels = async () => {
-  setLoading(true);
+  const fetchModels = async () => {
+    setLoading(true);
 
-  let query = supabase
-    .from('profiles')
-    .select('*')
-    .eq('is_public', true)
-    .eq('type', 'talent');
+    let baseQuery = supabase
+      .from('profiles')
+      .select('*', { count: 'exact' })
+      .eq('is_public', true)
+      .eq('type', 'talent');
 
-  if (gender) query = query.eq('gender', gender);
+    if (gender) baseQuery = baseQuery.eq('gender', gender);
+    if (search.trim()) baseQuery = baseQuery.ilike('sexual_orientation', `%${search.trim()}%`);
+    if (tags.length) baseQuery = baseQuery.contains('tags', tags);
 
-  if (search.trim()) {
-    query = query.ilike('sexual_orientation', `%${search.trim()}%`);
-  }
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
 
-  if (tags.length) {
-    query = query.contains('tags', tags); // Supabase array match
-  }
+    const { data, error, count } = await baseQuery.range(from, to);
+    if (error) {
+      console.error('Error fetching talents:', error);
+      setLoading(false);
+      return;
+    }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error fetching talents:', error);
+    let filtered = data;
+    if (ageRange.min && ageRange.max) {
+      filtered = filtered.filter(model =>
+        model.age === null ||
+        (model.age >= ageRange.min && model.age <= ageRange.max)
+      );
+    }
+
+    filtered.sort((a, b) => {
+      if (a.age === null) return 1;
+      if (b.age === null) return -1;
+      return a.age - b.age;
+    });
+
+    setModels(filtered);
+    setTotalCount(count || 0);
     setLoading(false);
-    return;
-  }
+  };
 
-  // ✅ Apply age filtering with null included
-  let filtered = data;
-  if (ageRange.min && ageRange.max) {
-    filtered = filtered.filter(model =>
-      model.age === null ||
-      (model.age >= ageRange.min && model.age <= ageRange.max)
-    );
-  }
-
-  // ✅ Push null ages to the end
-  filtered.sort((a, b) => {
-    if (a.age === null) return 1;
-    if (b.age === null) return -1;
-    return a.age - b.age;
-  });
-
-  setModels(filtered);
-  setLoading(false);
-};
-
-  /* initial load */
-  useEffect(() => { fetchModels(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchModels(); }, [page]); // reload when page changes
 
   return (
-    <div className="flex max-w-7xl mx-auto py-8 px-4 gap-6">
+    <div className="flex flex-col md:flex-row max-w-7xl mx-auto py-8 px-4 gap-6">
       {/* ───────── Sidebar Filters ───────── */}
-      <aside className="w-full md:w-64 shrink-0 p-4 bg-gray-100 rounded shadow">
+      <aside className="w-full md:w-64 p-4 bg-gray-100 rounded shadow mb-6 md:mb-0">
         <h3 className="font-bold mb-3">Gender</h3>
         <div className="flex flex-wrap gap-2 mb-4">
-          {['male','female','non-binary'].map(opt => (
+          {['male', 'female', 'non-binary'].map(opt => (
             <button
               key={opt}
               onClick={() => setGender(gender === opt ? '' : opt)}
@@ -108,27 +106,27 @@ export default function FindTalent() {
         </div>
 
         <h3 className="font-bold mb-2">Age Range</h3>
-<div className="flex items-center gap-2 mb-4">
-  <input
-    type="number"
-    min="18"
-    max="100"
-    value={ageRange.min}
-    onChange={(e) => setAgeRange(prev => ({ ...prev, min: Number(e.target.value) }))}
-    className="w-20 p-1 border rounded text-sm"
-    placeholder="Min"
-  />
-  <span>-</span>
-  <input
-    type="number"
-    min="18"
-    max="100"
-    value={ageRange.max}
-    onChange={(e) => setAgeRange(prev => ({ ...prev, max: Number(e.target.value) }))}
-    className="w-20 p-1 border rounded text-sm"
-    placeholder="Max"
-  />
-</div>
+        <div className="flex items-center gap-2 mb-4">
+          <input
+            type="number"
+            min="18"
+            max="100"
+            value={ageRange.min}
+            onChange={(e) => setAgeRange(prev => ({ ...prev, min: Number(e.target.value) }))}
+            className="w-20 p-1 border rounded text-sm"
+            placeholder="Min"
+          />
+          <span>-</span>
+          <input
+            type="number"
+            min="18"
+            max="100"
+            value={ageRange.max}
+            onChange={(e) => setAgeRange(prev => ({ ...prev, max: Number(e.target.value) }))}
+            className="w-20 p-1 border rounded text-sm"
+            placeholder="Max"
+          />
+        </div>
 
         <h3 className="font-bold mb-2">Sexual Orientation (search)</h3>
         <input
@@ -139,7 +137,10 @@ export default function FindTalent() {
         />
 
         <button
-          onClick={fetchModels}
+          onClick={() => {
+            setPage(1); // reset to first page
+            fetchModels();
+          }}
           className="w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-800 transition"
         >
           Apply Filters
@@ -153,20 +154,38 @@ export default function FindTalent() {
         {loading ? (
           <p className="text-gray-600">Loading…</p>
         ) : models.length ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {models.map(model => (
-              <Link key={model.id} href={`/profile/${model.vanity_username}`} className="text-center">
-                <img
-                  src={model.headshot_image
-                    ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${model.headshot_image}`
-                    : '/placeholder-avatar.png'}
-                  alt={model.full_name}
-                  className="w-32 h-32 rounded-full mx-auto object-cover mb-2"
-                />
-                <h3 className="font-semibold">{model.full_name}</h3>
-              </Link>
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {models.map(model => (
+                <Link key={model.id} href={`/profile/${model.vanity_username}`} className="text-center">
+                  <img
+                    src={model.headshot_image
+                      ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${model.headshot_image}`
+                      : '/placeholder-avatar.png'}
+                    alt={model.full_name}
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full mx-auto object-cover mb-1"
+                  />
+                  <h3 className="text-sm font-semibold">{model.full_name}</h3>
+                </Link>
+              ))}
+            </div>
+
+            {/* ───────── Pagination ───────── */}
+            <div className="mt-6 flex flex-wrap gap-2 justify-center">
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i + 1)}
+                  className={`px-3 py-1 text-sm rounded border 
+                    ${page === i + 1
+                      ? 'bg-blue-700 text-white'
+                      : 'bg-white text-gray-800 hover:bg-gray-100'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          </>
         ) : (
           <p>No talents match your filters.</p>
         )}

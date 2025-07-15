@@ -41,12 +41,16 @@ export default function EditProfile() {
     }));
   };
 
+
   const handleImageUpload = async (e, imageType) => {
     const file = e.target.files[0];
     if (!file) return;
     const { data: { user } } = await supabase.auth.getUser();
     const extension = file.name.split(".").pop();
     const path = `${user.id}/${imageType}.${extension}`;
+    
+    console.log("Uploading:", file.name, file.type, path);
+
     const { error: uploadError } = await supabase.storage
       .from("avatars")
       .upload(path, file, {
@@ -54,12 +58,15 @@ export default function EditProfile() {
         upsert: true,
         contentType: file.type,
       });
+
     if (!uploadError) {
       await supabase
         .from("profiles")
         .update({ [imageType]: path })
         .eq("id", user.id);
       setProfile(prev => ({ ...prev, [imageType]: path }));
+      } else {
+    console.error("Upload failed:", uploadError); // ✅ Add this too
     }
   };
 
@@ -78,24 +85,26 @@ export default function EditProfile() {
     setUpdating(true);
     const { data: { user } } = await supabase.auth.getUser();
     const updates = {
-      full_name: profile.full_name,
-      vanity_username: profile.vanity_username,
-      bio: profile.bio,
-      birthday: profile.birthday,
-      height: profile.height,
-      gender: profile.gender,
-      hair_color: profile.hair_color,
-      sexual_orientation: profile.sexual_orientation,
-      camera_experience: profile.camera_experience,
-      instagram_handle: profile.instagram_handle,
-      twitter_handle: profile.twitter_handle,
-      snapchat_handle: profile.snapchat_handle,
-      is_public: profile.is_public,
-      cover_image: profile.cover_image,
-      headshot_image: profile.headshot_image,
-      full_body_image_1: profile.full_body_image_1,
-      full_body_image_2: profile.full_body_image_2,
-    };
+  full_name: profile.full_name,
+  vanity_username: profile.vanity_username,
+  bio: profile.bio,
+  birthday: profile.birthday,
+  height: profile.height,
+  gender: profile.gender,
+  hair_color: profile.hair_color,
+  sexual_orientation: profile.sexual_orientation,
+  camera_experience: profile.camera_experience,
+  instagram_handle: profile.instagram_handle,
+  twitter_handle: profile.twitter_handle,
+  snapchat_handle: profile.snapchat_handle,
+  is_public: profile.is_public,
+  cover_image: profile.cover_image,
+  headshot_image: profile.headshot_image,
+  full_body_image_1: profile.full_body_image_1,
+  full_body_image_2: profile.full_body_image_2,
+  type: profile.type, // <-- add this line
+};
+
     const { error } = await supabase
   .from("profiles")
   .upsert([{ id: user.id, ...updates }], { onConflict: "id" });
@@ -103,6 +112,7 @@ export default function EditProfile() {
       alert("Profile updated!");
       router.push("/profile/" + updates.vanity_username);
     }
+    
     setUpdating(false);
   };
 
@@ -116,6 +126,8 @@ export default function EditProfile() {
         onSubmit={handleSubmit}
         className="max-w-4xl mx-auto bg-white p-6 rounded shadow"
       >
+        window.location.reload();
+
         <h1 className="text-xl font-bold mb-4">Edit Profile</h1>
 
         {/* Cover with overlapping Avatar */}
@@ -159,6 +171,21 @@ export default function EditProfile() {
 
         <input name="vanity_username" placeholder="Username" value={profile.vanity_username || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
         <p className="text-xs text-gray-500 mb-3">Appears in your URL</p>
+
+        <label className="block text-sm font-medium mb-1">Account Type</label>
+<select
+  name="type"
+  value={profile.type || ""}
+  onChange={handleChange}
+  className="w-full p-2 border rounded mb-4"
+>
+  <option value="">Select Role</option>
+  <option value="talent">Talent</option>
+  <option value="creator">Producer/Studio/Content Creator</option>
+</select>
+<p className="text-xs text-gray-500 mb-3">
+  Switch between Talent and Content Creator roles to access different platform features.
+</p>
 
         <textarea name="bio" placeholder="Tell us about yourself..." value={profile.bio || ""} onChange={handleChange} className="w-full p-2 border rounded mb-1" />
         <p className="text-xs text-gray-500 mb-3">Share experience, interests</p>
@@ -220,10 +247,10 @@ export default function EditProfile() {
           </div>
         </div>
 
-       <div className="flex justify-end mt-6 gap-4">
+<div className="flex flex-col sm:flex-row justify-end mt-6 gap-3 sm:gap-4">
   <button
     type="submit"
-    className="bg-blue-600 text-white font-semibold px-6 py-2 rounded hover:bg-blue-700"
+    className="w-full sm:w-auto bg-blue-600 text-white font-semibold px-4 py-2 rounded hover:bg-blue-700"
     disabled={updating}
   >
     {updating ? "Saving..." : "Save Profile"}
@@ -232,7 +259,7 @@ export default function EditProfile() {
   <button
     type="button"
     onClick={() => router.push("/change-password")}
-    className="bg-yellow-500 text-white font-semibold px-6 py-2 rounded hover:bg-yellow-600"
+    className="w-full sm:w-auto bg-yellow-500 text-white font-semibold px-4 py-2 rounded hover:bg-yellow-600"
   >
     Change Password
   </button>
@@ -248,7 +275,7 @@ export default function EditProfile() {
       await supabase.auth.signOut();
       router.push("/");
     }}
-    className="bg-red-600 text-white font-semibold px-6 py-2 rounded hover:bg-red-700"
+    className="w-full sm:w-auto bg-red-600 text-white font-semibold px-4 py-2 rounded hover:bg-red-700"
   >
     Deactivate Account
   </button>
