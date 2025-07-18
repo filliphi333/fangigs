@@ -17,6 +17,7 @@ function ApplicationsList({ jobIds }) {
       .select(`
   id,
   created_at,
+  job_id,
   job_postings (
     id,
     title
@@ -27,7 +28,7 @@ function ApplicationsList({ jobIds }) {
     headshot_image
   )
 `)
-.in("job_id", jobIds);
+.in("job_id", jobIds
 
       if (error) {
         console.error("Error fetching applications:", error);
