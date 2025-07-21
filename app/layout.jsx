@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Script from "next/script"; // 👈 Add this
 import "./globals.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -20,8 +21,30 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
- 
+      <Head>
+        {/* optional: meta tags, custom head elements */}
+      </Head>
       <body className="flex flex-col min-h-screen scroll-smooth">
+
+        {/* ✅ Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-1462WK8GWD"
+          strategy="afterInteractive"
+        />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-1462WK8GWD');
+            `,
+          }}
+        />
+        {/* ✅ End Analytics */}
+
         <Header />
         <div className="flex-grow">{children}</div>
         <Footer />
