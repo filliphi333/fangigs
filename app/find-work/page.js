@@ -76,6 +76,8 @@ export default function FindWork() {
                 <option>Talent</option>
                 <option>Content Creator</option>
                 <option>Studio</option>
+                <option>Cameraman</option>
+                <option>Editor</option>
               </select>
               <select className="border border-gray-300 rounded px-3 py-2 w-full">
                 <option>Category</option>

@@ -60,9 +60,9 @@ export default function NewsArticlePage() {
       <p className="text-sm text-gray-600 mb-2">
      Published: {formatDate(article.published_at)} | Source: {article.source_name}
     </p>
-    <div className="prose max-w-none">
-     {article.full_article}
-      </div>
+    <div className="prose max-w-none whitespace-pre-wrap">
+  {article.full_article}
+</div>
     </main>
   );
 }

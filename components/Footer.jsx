@@ -7,9 +7,21 @@ export default function Footer() {
       <div className="max-w-4xl mx-auto">
         <h2 className="text-xl font-bold mb-4">FanGigs - Find and post adult casting gigs professionally</h2>
         <div className="flex justify-center space-x-6 mb-6">
-          <a href="#" className="text-red-400 hover:text-red-600 transition">X</a>
-          <a href="#" className="text-red-400 hover:text-red-600 transition">Facebook</a>
-        </div>
+  <a
+    href="https://x.com/FanGigsOfficial"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-red-400 hover:text-red-600 transition"
+  >
+    X
+  </a>
+  <a
+    href="#"
+    className="text-red-400 hover:text-red-600 transition"
+  >
+    Facebook
+  </a>
+</div>
         <div className="mb-6">
           <p>Contact us at <a href="mailto:contact@fan-gigs.com" className="text-red-400 hover:text-red-600">contact@fan-gigs.com</a></p>
         </div>

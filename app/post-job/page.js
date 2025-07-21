@@ -41,13 +41,24 @@ export default function PostJob() {
     fetchUser();
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+const handleChange = (e) => {
+  const { name, value, type, checked } = e.target;
+
+  if (name === "pay") {
+    // Remove any existing non-numeric characters except dot
+    const numericValue = value.replace(/[^0-9.]/g, "");
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: numericValue ? `$${numericValue}` : "",
+    }));
+  } else {
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-  };
+  }
+};
 
   const toggleTag = (tag) => {
     setForm((prev) => ({
@@ -73,7 +84,7 @@ export default function PostJob() {
       title: form.title,
       description: form.description,
       location: form.location,
-      pay: form.isPayConfidential ? null : form.pay,
+      pay: form.isPayConfidential ? null : form.pay.replace(/^\$/, ""),
       is_pay_confidential: form.isPayConfidential,
       expiration: form.expiration,
       tags: form.tags,

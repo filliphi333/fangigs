@@ -32,6 +32,15 @@ export default function TalentDashboard() {
   const [completionPct, setCompletionPct] = useState(0);
   const [missingFields, setMissingFields] = useState([]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+const applicationsPerPage = 20;
+
+const totalPages = Math.ceil(applications.length / applicationsPerPage);
+const indexOfLastApp = currentPage * applicationsPerPage;
+const indexOfFirstApp = indexOfLastApp - applicationsPerPage;
+const currentApplications = applications.slice(indexOfFirstApp, indexOfLastApp);
+
+
   useEffect(() => {
     const fetchProfile = async () => {
       const {
@@ -62,9 +71,17 @@ export default function TalentDashboard() {
     const fetchApplications = async (userId) => {
       const { data, error } = await supabase
         .from("job_applications")
-        .select(
-          `id, created_at, status, job_postings!inner(id, title, location, pay)`
-        )
+       .select(`
+  id,
+  created_at,
+  status,
+  job_postings:job_id (
+    id,
+    title,
+    location,
+    pay
+  )
+`)
         .eq("talent_id", userId)
         .order("created_at", { ascending: false });
 
@@ -220,38 +237,49 @@ export default function TalentDashboard() {
 
           {/* Tab Panels */}
           <div className="bg-white p-6 rounded-lg shadow min-h-[300px]">
-            {activeTab === "applications" && (
-              <div className="space-y-4">
-                {applications.length === 0 ? (
-                  <p className="text-gray-600">
-                    You haven't applied to any gigs yet.
-                  </p>
-                ) : (
-                  applications.map((app) => (
-                    <div
-                      key={app.id}
-                      className="p-4 border rounded shadow-sm hover:bg-gray-50"
-                    >
-                      <h3 className="font-semibold text-lg">
-                        {app.job_postings.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        Location: {app.job_postings.location}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Pay: {app.job_postings.pay}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Applied on {new Date(app.created_at).toLocaleDateString()}
-                      </p>
-                      <span className="text-xs font-medium bg-blue-100 text-blue-600 px-2 py-1 rounded mt-2 inline-block">
-                        {app.status || "Pending"}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+          {activeTab === "applications" && (
+  <div className="space-y-4">
+    {applications.length === 0 ? (
+      <p className="text-gray-600">You haven't applied to any gigs yet.</p>
+    ) : (
+      currentApplications.map((app) => (
+       <Link key={app.id} href={`/job/${app.job_postings.id}`} className="block">
+  <div className="p-4 border rounded shadow-sm hover:bg-gray-50 cursor-pointer">
+    <h3 className="font-semibold text-lg text-blue-600">
+      {app.job_postings.title}
+    </h3>
+    <p className="text-sm text-gray-600">Location: {app.job_postings.location}</p>
+    <p className="text-sm text-gray-600">Pay: {app.job_postings.pay}</p>
+    <p className="text-xs text-gray-400 mt-1">
+      Applied on {new Date(app.created_at).toLocaleDateString()}
+    </p>
+    <span className="text-xs font-medium bg-blue-100 text-blue-600 px-2 py-1 rounded mt-2 inline-block">
+      {app.status || "Pending"}
+    </span>
+  </div>
+</Link>
+
+      ))
+    )}
+
+    {/* PAGINATION GOES HERE */}
+    <div className="flex justify-center items-center gap-2 mt-4">
+      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+        <button
+          key={page}
+          onClick={() => setCurrentPage(page)}
+          className={`px-3 py-1 rounded border ${
+            currentPage === page ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'
+          }`}
+        >
+          {page}
+        </button>
+      ))}
+    </div>
+  </div>
+)}
+
+
 
             {activeTab === "tags" && (
               <p className="text-gray-700 text-sm">

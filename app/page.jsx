@@ -8,6 +8,7 @@ import HeroSection from "../components/HeroSection"; // Import HeroSection
 import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '../lib/supabase';   // ← add this
+import CreatorMapSection from "../components/CreatorMapSection.jsx";
 
 export default function Home() {
   const [isJoinOpen, setJoinOpen] = useState(false);
@@ -44,56 +45,115 @@ export default function Home() {
       {/* Hero Section */}
       <HeroSection />
 
+
+
       {/* Scrollable Role Cards */}
-      <section className="py-12 px-4">
-        <div className="max-w-6xl mx-auto relative">
-          <button onClick={() => scroll('left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 border rounded-full p-2 shadow hidden md:block">
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
+    <section className="py-12 px-4 bg-gray-50 relative">
+  <div className="max-w-6xl mx-auto">
+    <h2 className="text-2xl font-bold text-center mb-6">Choose Your Role</h2>
 
-          <div id="roleScroll" className="flex overflow-x-auto space-x-6 pb-4 no-scrollbar scroll-smooth">
-            {[{
-              title: 'For Models', desc: 'Apply to verified casting calls and work with content creators.', link: '/roles/models', image: '/images/models.jpg'
-            }, {
-              title: 'For Content Creators', desc: 'Post job listings or find collaborators.', link: '/roles/creators', image: '/images/creators.jpg'
-            }, {
-              title: 'For Camerapeople', desc: 'Join sets and shoot high-quality scenes.', link: '/roles/camerapeople', image: '/images/camera.jpg'
-            }, {
-              title: 'For Editors', desc: 'Edit scenes and trailers.', link: '/roles/editors', image: '/images/editors.jpg'
-            }].map((role, index) => (
-              <a key={index} href={role.link} className="min-w-[250px] bg-white rounded-xl shadow hover:text-blue-700 hover:shadow-lg transition overflow-hidden">
-                <Image src={role.image} alt={role.title} width={300} height={160} className="w-full h-40 object-cover object-top" />
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold">{role.title}</h3>
-                  <p className="text-sm text-gray-600">{role.desc}</p>
-                </div>
-              </a>
-            ))}
-          </div>
+    <div className="relative">
+      {/* Left Arrow (Mobile) */}
+      <button
+        onClick={() => scroll('left')}
+        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white p-1 rounded-full shadow md:hidden"
+      >
+        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
 
-          <button onClick={() => scroll('right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 border rounded-full p-2 shadow hidden md:block">
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </section>
+      {/* Right Arrow (Mobile) */}
+      <button
+        onClick={() => scroll('right')}
+        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white p-1 rounded-full shadow md:hidden"
+      >
+        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
 
-      {/* Signup Neon Section */}
-      <section className="relative h-[400px]">
-        <Image src="/images/neon-sign.jpg" alt="Neon Sign" fill className="object-cover object-center brightness-[0.5]" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="bg-white/90 rounded-lg p-8 max-w-md w-full text-center shadow-lg">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Join the FanGigs Network</h2>
-            <p className="text-gray-600 mb-4">Get discovered. Get booked. Get paid.</p>
-            <button onClick={() => setJoinOpen(true)} className="bg-[#E8967B] text-white px-6 py-2 rounded font-semibold hover:opacity-90 transition">
-              Create Your Free Profile
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* Left Scroll Button (Desktop) */}
+      <button
+        onClick={() => scroll('left')}
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 border rounded-full p-2 shadow hidden md:flex"
+      >
+        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      {/* Scrollable Role Cards */}
+      <div
+        id="roleScroll"
+        className="flex overflow-x-auto space-x-6 pb-4 px-1 no-scrollbar scroll-smooth"
+      >
+        {[{
+          title: 'For Models',
+          desc: 'Apply to verified casting calls and work with content creators.',
+          link: '/roles/models',
+          image: '/images/models.jpg'
+        }, {
+          title: 'For Content Creators',
+          desc: 'Post job listings or find collaborators.',
+          link: '/roles/creators',
+          image: '/images/creators.jpg'
+        }, {
+          title: 'For Camerapeople',
+          desc: 'Join sets and shoot high-quality scenes.',
+          link: '/roles/camerapeople',
+          image: '/images/camera.jpg'
+        }, {
+          title: 'For Editors',
+          desc: 'Edit scenes and trailers.',
+          link: '/roles/editors',
+          image: '/images/editors.jpg'
+          }, {
+          title: 'For Studios',
+          desc: 'Find fresh faces and post casting calls on a clean, professional platform.',
+          link: '/roles/studios',
+          image: '/images/studio.jpg'
+        }].map((role, index) => (
+          <Link
+            key={index}
+            href={role.link}
+            className="min-w-[260px] max-w-[260px] bg-white rounded-xl shadow hover:shadow-xl transition overflow-hidden border border-gray-200"
+          >
+            <Image
+              src={role.image}
+              alt={role.title}
+              width={300}
+              height={160}
+              className="w-full h-40 object-cover object-center"
+            />
+            <div className="p-4">
+              <h3 className="text-lg font-semibold mb-1">{role.title}</h3>
+              <p className="text-sm text-gray-600">{role.desc}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Right Scroll Button (Desktop) */}
+      <button
+        onClick={() => scroll('right')}
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 border rounded-full p-2 shadow hidden md:flex"
+      >
+        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+
+
+
+
+
+
+  <CreatorMapSection />
 
       {/* Trending Roles */}
       <section className="bg-pink-500 w-full py-6 px-4">
