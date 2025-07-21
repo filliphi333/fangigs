@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from 'next/link';
+import Link from "next/link";
 
 /* ─────────────────────── ApplicationsList COMPONENT ─────────────────────── */
 function ApplicationsList({ jobIds }) {
@@ -14,23 +14,21 @@ function ApplicationsList({ jobIds }) {
     const fetchApplications = async () => {
       const { data, error } = await supabase
         .from("job_applications")
-
-      .select(`
-  id,
-  created_at,
-  job_id,
-  job_postings (
-    id,
-    title
-  ),
-  profiles:talent_id (
-    id,
-    full_name,
-    headshot_image
-  )
-`)
-.in("job_id", jobIds
-  
+        .select(`
+          id,
+          created_at,
+          job_id,
+          job_postings (
+            id,
+            title
+          ),
+          profiles:talent_id (
+            id,
+            full_name,
+            headshot_image
+          )
+        `)
+        .in("job_id", jobIds);
 
       if (error) {
         console.error("Error fetching applications:", error);
@@ -57,8 +55,8 @@ function ApplicationsList({ jobIds }) {
         >
           <img
             src={
-              app.profiles?.profile_picture_url
-                ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${app.profiles.profile_picture_url}`
+              app.profiles?.headshot_image
+                ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${app.profiles.headshot_image}`
                 : "/placeholder-avatar.png"
             }
             alt="applicant"
@@ -222,8 +220,8 @@ export default function ProducerDashboard() {
       <aside className="w-1/4 p-4 bg-white rounded shadow space-y-6">
         <img
           src={
-            profile.profile_picture_url
-              ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.profile_picture_url}`
+            profile.headshot_image
+              ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}`
               : "/placeholder-avatar.png"
           }
           alt="profile"
@@ -233,6 +231,7 @@ export default function ProducerDashboard() {
           <h2 className="text-xl font-semibold">{profile.full_name}</h2>
           {profile.bio && <p className="text-gray-600 text-sm mt-1">{profile.bio}</p>}
         </div>
+
         {/* Profile Completeness */}
         {(() => {
           const checks = [
@@ -256,12 +255,14 @@ export default function ProducerDashboard() {
             </div>
           );
         })()}
+
         <div className="space-y-1">
           <p className="font-semibold">Your stats</p>
           <p className="text-sm text-gray-700">🎬 Jobs posted: {jobPosts.length}</p>
           <p className="text-sm text-gray-700">👀 Views on jobs: —</p>
           <p className="text-sm text-gray-700">📩 Applications: {applicationCount}</p>
         </div>
+
         <Link href="/edit-profile">
           <button className="w-full bg-blue-700 text-white font-semibold py-2 rounded hover:bg-blue-800 transition">
             Edit Profile
