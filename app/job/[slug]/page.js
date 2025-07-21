@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function JobPage() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const router = useRouter();
 
   const [job, setJob] = useState(null);
@@ -28,7 +28,7 @@ export default function JobPage() {
       const { data: jobData, error: jobErr } = await supabase
         .from("job_postings")
         .select("*")
-        .eq("id", id)
+        .eq("slug", slug)
         .single();
 
       if (jobErr || !jobData) { setLoading(false); return; }
@@ -66,7 +66,7 @@ export default function JobPage() {
 
       setLoading(false);
     })();
-  }, [id]);
+  }, [slug]);
 
   /* ─────────────────────────────── apply handler ─────────────────────────────── */
   const handleApply = async () => {
