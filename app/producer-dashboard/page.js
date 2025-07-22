@@ -4,6 +4,10 @@ import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import MessagesInbox from "../../components/MessagesInbox";
+import SavedTalentsList from "../../components/SavedTalentsList";
+
+
 
 /* ─────────────────────── ApplicationsList COMPONENT ─────────────────────── */
 function ApplicationsList({ jobIds }) {
@@ -74,6 +78,11 @@ function ApplicationsList({ jobIds }) {
     </div>
   );
 }
+
+
+// ✅ Place this above the ProducerDashboard component MESSAGE INBOX FUNCTION
+
+
 
 /* ─────────────────────── ProducerDashboard ─────────────────────── */
 export default function ProducerDashboard() {
@@ -205,10 +214,21 @@ export default function ProducerDashboard() {
             )}
           </div>
         );
-      case "saved-talents":
-        return <div className="bg-white p-4 rounded shadow">Saved talents.</div>;
-      case "messages":
-        return <div className="bg-white p-4 rounded shadow">Message inbox here.</div>;
+   case "saved-talents":
+  return (
+    <div className="bg-white p-4 rounded shadow space-y-4">
+      <h2 className="text-xl font-bold mb-4">Saved Talents</h2>
+      <SavedTalentsList producerId={profile.id} />
+    </div>
+  );
+
+     
+        case "messages":
+  return (
+    <div className="bg-white p-4 rounded shadow">
+      <MessagesInbox userId={profile.id} />
+    </div>
+  );
       default:
         return null;
     }

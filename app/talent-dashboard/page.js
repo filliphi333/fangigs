@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import SignInModal from "../../components/SignInModal";
+import MessagesInbox from "../../components/MessagesInbox";
+
 
 export default function TalentDashboard() {
   const [isSignInModalOpen, setSignInModalOpen] = useState(false);
@@ -292,8 +294,9 @@ const currentApplications = applications.slice(indexOfFirstApp, indexOfLastApp);
               </p>
             )}
             {activeTab === "messages" && (
-              <p className="text-gray-700 text-sm">No messages yet.</p>
-            )}
+  <MessagesInbox userId={profile.id} />
+)}
+
           </div>
         </div>
       </section>
