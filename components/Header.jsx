@@ -25,11 +25,19 @@ export default function Header() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser(user);
-        const { data: profileData } = await supabase
+        const { data: profileData, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
+        
+        console.log('Header profile data:', profileData);
+        console.log('Profile headshot_image:', profileData?.headshot_image);
+        
+        if (error) {
+          console.error('Error fetching profile:', error);
+        }
+        
         setProfile(profileData);
       }
     };
@@ -74,12 +82,19 @@ export default function Header() {
             <Link href={`/profile/${profile.vanity_username}`}>
               <Image
                 src={profile.headshot_image
-                  ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}`
+                  ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}?t=${Date.now()}`
                   : '/placeholder-avatar.png'}
                 alt="Avatar"
                 width={40}
                 height={40}
                 className="rounded-full border"
+                onError={(e) => {
+                  console.error('Avatar image failed to load:', e);
+                  e.target.src = '/placeholder-avatar.png';
+                }}
+                onLoad={() => {
+                  console.log('Avatar image loaded successfully');
+                }}
               />
             </Link>
             <span className="font-medium text-gray-800">Hello {profile.full_name}</span>
@@ -113,12 +128,16 @@ export default function Header() {
                 <Link href={`/profile/${profile.vanity_username}`}>
                   <Image
                     src={profile.headshot_image
-                      ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}`
+                      ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}?t=${Date.now()}`
                       : '/placeholder-avatar.png'}
                     alt="Avatar"
                     width={40}
                     height={40}
                     className="rounded-full border"
+                    onError={(e) => {
+                      console.error('Mobile avatar image failed to load:', e);
+                      e.target.src = '/placeholder-avatar.png';
+                    }}
                   />
                 </Link>
                 <p className="font-semibold text-gray-700">Hello {profile.full_name}</p>

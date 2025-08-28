@@ -24,7 +24,7 @@ export default function MessagesPanel({ currentUserId }) {
   }, [currentUserId]);
 
   return (
-    <div className="flex border rounded-lg shadow bg-white overflow-hidden h-[70vh]">
+    <div className="flex border rounded-lg shadow bg-white h-[70vh]">
       {/* Left: List of conversations */}
       <div className="w-1/3 border-r overflow-y-auto">
         <ConversationList
