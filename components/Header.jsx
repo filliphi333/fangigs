@@ -13,166 +13,331 @@ export default function Header() {
   const [isSignInModalOpen, setSignInModalOpen] = useState(false);
   const [isJoinModalOpen, setJoinModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
 
-  const pathname = usePathname(); // track route changes
+  const pathname = usePathname();
 
   useEffect(() => {
-    setMobileMenuOpen(false); // close menu when route changes
+    setMobileMenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUser(user);
-        const { data: profileData, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+      try {
+        setLoading(true);
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
         
-        console.log('Header profile data:', profileData);
-        console.log('Profile headshot_image:', profileData?.headshot_image);
-        
-        if (error) {
-          console.error('Error fetching profile:', error);
+        if (userError) {
+          throw userError;
         }
         
-        setProfile(profileData);
+        if (user) {
+          setUser(user);
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          
+          if (profileError) {
+            throw profileError;
+          }
+          
+          setProfile(profileData);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        showNotification('Error loading user data', 'error');
+      } finally {
+        setLoading(false);
       }
     };
     getUser();
   }, []);
 
+  const showNotification = (message, type = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/';
+    try {
+      await supabase.auth.signOut();
+      showNotification('Successfully signed out', 'success');
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
+    } catch (error) {
+      console.error('Error signing out:', error);
+      showNotification('Error signing out', 'error');
+    }
+  };
+
+  const handleKeyDown = (e, action) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      action();
+    }
   };
 
   return (
-    <header className="bg-white border-b border-gray-300">
-      <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center">
-        <div className="flex items-center space-x-8 whitespace-nowrap">
-          {/* Logo */}
-          <Link href="/" className="text-5xl font-extrabold bg-gradient-to-b from-blue-600 via-purple-500 to-red-500 text-transparent bg-clip-text">
-            <span translate="no">FANGIGS</span>
-          </Link>
-
-          {/* Mobile Hamburger */}
-          <div className="sm:hidden">
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-3xl">
-              ☰
-            </button>
-          </div>
-
-          {/* Desktop Nav */}
-          <nav className="hidden sm:flex items-center space-x-4">
-            <Link href="/find-work" className="text-black font-semibold px-2 py-1 rounded hover:bg-blue-100 hover:text-blue-900 transition">Find Work</Link>
-            <Link href="/find-talent" className="text-black font-semibold px-2 py-1 rounded hover:bg-blue-100 hover:text-blue-900 transition">Find Talents</Link>
-            <Link href="/post-job" className="text-black font-semibold px-2 py-1 rounded hover:bg-blue-100 hover:text-blue-900 transition">Post a Job</Link>
-          </nav>
+    <>
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg transition-all ${
+          notification.type === 'success' ? 'bg-green-500 text-white' :
+          notification.type === 'error' ? 'bg-red-500 text-white' :
+          'bg-blue-500 text-white'
+        }`}>
+          {notification.message}
         </div>
+      )}
 
-        {/* Desktop User Area */}
-        {user && profile ? (
-          <div className="hidden sm:flex items-center space-x-4">
-            <Link href={profile.type === 'creator' ? '/producer-dashboard' : '/talent-dashboard'}>
-              <button className="bg-blue-800 text-white px-4 py-2 rounded font-bold hover:bg-blue-900 transition">Dashboard</button>
-            </Link>
-            <Link href={`/profile/${profile.vanity_username}`}>
-              <Image
-                src={profile.headshot_image
-                  ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}?t=${Date.now()}`
-                  : '/placeholder-avatar.png'}
-                alt="Avatar"
-                width={40}
-                height={40}
-                className="rounded-full border"
-                onError={(e) => {
-                  console.error('Avatar image failed to load:', e);
-                  e.target.src = '/placeholder-avatar.png';
-                }}
-                onLoad={() => {
-                  console.log('Avatar image loaded successfully');
-                }}
-              />
-            </Link>
-            <span className="font-medium text-gray-800">Hello {profile.full_name}</span>
-            <button
-              onClick={handleLogout}
-              className="bg-red-600 text-white px-3 py-1 rounded transform hover:scale-110 hover:rotate-[360deg] hover:opacity-80 transition-all duration-500 ease-in-out hover:bg-red-700"
+      <header className="bg-white border-b border-gray-300 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center">
+          <div className="flex items-center space-x-8 whitespace-nowrap">
+            {/* Logo */}
+            <Link 
+              href="/" 
+              className="text-4xl md:text-5xl font-extrabold bg-gradient-to-b from-blue-600 via-purple-500 to-red-500 text-transparent bg-clip-text hover:scale-105 transition-transform"
+              aria-label="FanGigs Home"
             >
-              Sign Out
-            </button>
-          </div>
-        ) : (
-          <div className="space-x-2">
-            <button onClick={() => setSignInModalOpen(true)} className="text-black font-semibold hover:underline">Sign In</button>
-            <button onClick={() => setJoinModalOpen(true)} className="bg-blue-700 text-white px-3 py-2 rounded hover:bg-blue-800">Join</button>
-          </div>
-        )}
-      </div>
+              <span translate="no">FANGIGS</span>
+            </Link>
 
-      {/* Mobile Dropdown Menu */}
-      {mobileMenuOpen && (
-        <div className="sm:hidden px-4 pb-4 space-y-3">
-           {/* Nav Links */}
-          <Link href="/find-work" onClick={() => setMobileMenuOpen(false)} className="block font-semibold text-black hover:underline">Find Work</Link>
-          <Link href="/find-talent" onClick={() => setMobileMenuOpen(false)} className="block font-semibold text-black hover:underline">Find Talents</Link>
-          <Link href="/post-job" onClick={() => setMobileMenuOpen(false)} className="block font-semibold text-black hover:underline">Post a Job</Link>
-          
-          {user && profile && (
-            <>
-              {/* Avatar + Hello */}
-              <div className="flex items-center gap-3">
-                <Link href={`/profile/${profile.vanity_username}`}>
+            {/* Mobile Hamburger */}
+            <div className="lg:hidden">
+              <button 
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={mobileMenuOpen}
+              >
+                <div className="w-6 h-6 flex flex-col justify-center">
+                  <span className={`block w-6 h-0.5 bg-gray-600 transition-all ${
+                    mobileMenuOpen ? 'rotate-45 translate-y-1' : ''
+                  }`} />
+                  <span className={`block w-6 h-0.5 bg-gray-600 mt-1 transition-all ${
+                    mobileMenuOpen ? 'opacity-0' : ''
+                  }`} />
+                  <span className={`block w-6 h-0.5 bg-gray-600 mt-1 transition-all ${
+                    mobileMenuOpen ? '-rotate-45 -translate-y-1' : ''
+                  }`} />
+                </div>
+              </button>
+            </div>
+
+            {/* Desktop Nav */}
+            <nav className="hidden lg:flex items-center space-x-1" role="navigation">
+              <Link 
+                href="/find-work" 
+                className="text-gray-700 font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Find Work
+              </Link>
+              <Link 
+                href="/find-talent" 
+                className="text-gray-700 font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Find Talents
+              </Link>
+              <Link 
+                href="/post-job" 
+                className="text-gray-700 font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Post a Job
+              </Link>
+            </nav>
+          </div>
+
+          {/* Desktop User Area */}
+          <div className="hidden lg:flex items-center space-x-4">
+            {loading ? (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span className="text-sm text-gray-500">Loading...</span>
+              </div>
+            ) : user && profile ? (
+              <>
+                <Link href={profile.type === 'creator' ? '/producer-dashboard' : '/talent-dashboard'}>
+                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    <i className="fas fa-tachometer-alt mr-2"></i>
+                    Dashboard
+                  </button>
+                </Link>
+                <Link 
+                  href={`/profile/${profile.vanity_username}`}
+                  className="relative group focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
+                >
                   <Image
                     src={profile.headshot_image
                       ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}?t=${Date.now()}`
                       : '/placeholder-avatar.png'}
-                    alt="Avatar"
+                    alt={`${profile.full_name}'s avatar`}
                     width={40}
                     height={40}
-                    className="rounded-full border"
+                    className="rounded-full border-2 border-gray-200 hover:border-blue-400 transition-colors object-cover"
                     onError={(e) => {
-                      console.error('Mobile avatar image failed to load:', e);
                       e.target.src = '/placeholder-avatar.png';
                     }}
                   />
+                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                 </Link>
-                <p className="font-semibold text-gray-700">Hello {profile.full_name}</p>
+                <div className="flex flex-col">
+                  <span className="font-medium text-gray-800 text-sm">
+                    Hello, {profile.full_name?.split(' ')[0] || 'User'}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    @{profile.vanity_username}
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-600 transition-all focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                  aria-label="Sign out"
+                >
+                  <i className="fas fa-sign-out-alt mr-2"></i>
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <button 
+                  onClick={() => setSignInModalOpen(true)} 
+                  className="text-gray-700 font-semibold hover:text-blue-600 transition-colors px-4 py-2 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Sign In
+                </button>
+                <button 
+                  onClick={() => setJoinModalOpen(true)} 
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Join
+                </button>
               </div>
-
-              {/* Dashboard */}
-              <button
-                onClick={() => {
-                  const path = profile.type === 'creator' ? '/producer-dashboard' : '/talent-dashboard';
-                  window.location.href = path;
-                }}
-                className="w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-800"
-              >
-                Dashboard
-              </button>
-
-              {/* Sign Out */}
-              <button
-                onClick={handleLogout}
-                className="w-full bg-red-600 text-white py-2 rounded hover:bg-red-700"
-              >
-                Sign Out
-              </button>
-            </>
-          )}
+            )}
+          </div>
         </div>
-      )}
 
-      {/* Modals */}
-      <SignInModal 
-        isOpen={isSignInModalOpen} 
-        onClose={() => setSignInModalOpen(false)} 
-        openJoinModal={() => setJoinModalOpen(true)} 
-      />
-      <JoinModal isOpen={isJoinModalOpen} onClose={() => setJoinModalOpen(false)} />
-    </header>
+        {/* Mobile Dropdown Menu */}
+        <div className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+          mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+        }`}>
+          <div className="px-4 py-4 space-y-4 bg-gray-50 border-t border-gray-200">
+            {/* Nav Links */}
+            <div className="space-y-2">
+              <Link 
+                href="/find-work" 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="block font-semibold text-gray-700 hover:text-blue-600 hover:bg-white px-3 py-2 rounded-lg transition-all"
+              >
+                <i className="fas fa-search mr-2"></i>
+                Find Work
+              </Link>
+              <Link 
+                href="/find-talent" 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="block font-semibold text-gray-700 hover:text-blue-600 hover:bg-white px-3 py-2 rounded-lg transition-all"
+              >
+                <i className="fas fa-users mr-2"></i>
+                Find Talents
+              </Link>
+              <Link 
+                href="/post-job" 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="block font-semibold text-gray-700 hover:text-blue-600 hover:bg-white px-3 py-2 rounded-lg transition-all"
+              >
+                <i className="fas fa-plus-circle mr-2"></i>
+                Post a Job
+              </Link>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-sm text-gray-500">Loading...</span>
+              </div>
+            ) : user && profile ? (
+              <div className="space-y-4 pt-4 border-t border-gray-300">
+                {/* User Info */}
+                <div className="flex items-center gap-3 px-3 py-2 bg-white rounded-lg">
+                  <Link href={`/profile/${profile.vanity_username}`} onClick={() => setMobileMenuOpen(false)}>
+                    <Image
+                      src={profile.headshot_image
+                        ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${profile.headshot_image}?t=${Date.now()}`
+                        : '/placeholder-avatar.png'}
+                      alt={`${profile.full_name}'s avatar`}
+                      width={40}
+                      height={40}
+                      className="rounded-full border-2 border-gray-200 object-cover"
+                      onError={(e) => {
+                        e.target.src = '/placeholder-avatar.png';
+                      }}
+                    />
+                  </Link>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-800">{profile.full_name}</p>
+                    <p className="text-sm text-gray-600">@{profile.vanity_username}</p>
+                  </div>
+                </div>
+
+                {/* Dashboard Button */}
+                <Link 
+                  href={profile.type === 'creator' ? '/producer-dashboard' : '/talent-dashboard'}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all">
+                    <i className="fas fa-tachometer-alt mr-2"></i>
+                    Dashboard
+                  </button>
+                </Link>
+
+                {/* Sign Out Button */}
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full bg-red-500 text-white py-3 rounded-lg font-semibold hover:bg-red-600 transition-all"
+                >
+                  <i className="fas fa-sign-out-alt mr-2"></i>
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-4 border-t border-gray-300">
+                <button 
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setSignInModalOpen(true);
+                  }} 
+                  className="w-full text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-white transition-all"
+                >
+                  Sign In
+                </button>
+                <button 
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setJoinModalOpen(true);
+                  }} 
+                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-all"
+                >
+                  Join
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modals */}
+        <SignInModal 
+          isOpen={isSignInModalOpen} 
+          onClose={() => setSignInModalOpen(false)} 
+          openJoinModal={() => setJoinModalOpen(true)} 
+        />
+        <JoinModal isOpen={isJoinModalOpen} onClose={() => setJoinModalOpen(false)} />
+      </header>
+    </>
   );
 }

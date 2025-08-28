@@ -1,45 +1,287 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function Footer() {
+  const [email, setEmail] = useState("");
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+
+  const handleNewsletterSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!email || !email.includes("@")) {
+      setSubscriptionStatus({ type: "error", message: "Please enter a valid email address" });
+      return;
+    }
+
+    setIsSubscribing(true);
+    
+    try {
+      // Here you would integrate with your newsletter service
+      // For now, we'll simulate the process
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setSubscriptionStatus({ 
+        type: "success", 
+        message: "Thanks for subscribing! Check your email for confirmation." 
+      });
+      setEmail("");
+    } catch (error) {
+      setSubscriptionStatus({ 
+        type: "error", 
+        message: "Something went wrong. Please try again." 
+      });
+    } finally {
+      setIsSubscribing(false);
+      setTimeout(() => setSubscriptionStatus(null), 5000);
+    }
+  };
+
+  const currentYear = new Date().getFullYear();
+
+  const socialLinks = [
+    {
+      name: "X (Twitter)",
+      url: "https://x.com/FanGigsOfficial",
+      icon: "fab fa-x-twitter",
+      color: "hover:text-gray-300"
+    },
+    {
+      name: "Facebook",
+      url: "#",
+      icon: "fab fa-facebook-f",
+      color: "hover:text-blue-400"
+    },
+    {
+      name: "Instagram",
+      url: "#",
+      icon: "fab fa-instagram",
+      color: "hover:text-pink-400"
+    },
+    {
+      name: "LinkedIn",
+      url: "#",
+      icon: "fab fa-linkedin-in",
+      color: "hover:text-blue-300"
+    }
+  ];
+
+  const quickLinks = [
+    { href: "/find-work", label: "Find Work", icon: "fas fa-search" },
+    { href: "/find-talent", label: "Find Talent", icon: "fas fa-users" },
+    { href: "/post-job", label: "Post a Job", icon: "fas fa-plus-circle" },
+  ];
+
+  const legalLinks = [
+    { href: "/about", label: "About Us" },
+    { href: "/privacy", label: "Privacy Policy" },
+    { href: "/terms", label: "Terms of Use" },
+    { href: "/faq", label: "FAQ" },
+  ];
+
   return (
-    <footer className="bg-gradient-to-b from-black to-gray-900 text-white py-12 px-6 text-center">
-      <div className="max-w-4xl mx-auto">
-        <h2 className="text-xl font-bold mb-4">FanGigs - Find and post adult casting gigs professionally</h2>
-        <div className="flex justify-center space-x-6 mb-6">
-  <a
-    href="https://x.com/FanGigsOfficial"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-red-400 hover:text-red-600 transition"
-  >
-    X
-  </a>
-  <a
-    href="#"
-    className="text-red-400 hover:text-red-600 transition"
-  >
-    Facebook
-  </a>
-</div>
-        <div className="mb-6">
-          <p>Contact us at <a href="mailto:contact@fan-gigs.com" className="text-red-400 hover:text-red-600">contact@fan-gigs.com</a></p>
-        </div>
-        
-        <div className="mb-6">
-  <Link href="/about" className="text-red-400 hover:text-red-600 mx-2">About</Link>
-  <Link href="/privacy" className="text-red-400 hover:text-red-600 mx-2">Privacy Policy</Link>
-  <Link href="/terms" className="text-red-400 hover:text-red-600 mx-2">Terms of Use</Link>
-  <Link href="/faq" className="text-red-400 hover:text-red-600 mx-2">FAQ</Link>
-</div>
-        <form className="max-w-sm mx-auto">
-          <label htmlFor="newsletter" className="block text-sm font-medium text-gray-300 mb-2">Subscribe to our newsletter</label>
-          <div className="flex">
-            <input type="email" id="newsletter" name="newsletter" placeholder="Enter your email" className="w-full px-4 py-2 rounded-l bg-gray-800 border border-gray-600 text-white placeholder-gray-400" />
-            <button type="submit" className="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-semibold rounded-r">Subscribe</button>
+    <footer className="bg-gradient-to-b from-gray-900 via-gray-800 to-black text-white relative overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')]"></div>
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-6 py-16">
+        {/* Main Footer Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-12 mb-12">
+          
+          {/* Brand Section */}
+          <div className="lg:col-span-1">
+            <div className="mb-6">
+              <h2 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 text-transparent bg-clip-text mb-4">
+                FANGIGS
+              </h2>
+              <p className="text-gray-300 text-lg leading-relaxed">
+                Professional platform connecting adult content creators with talents, collaborators, and opportunities.
+              </p>
+            </div>
+            
+            {/* Contact Info */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 text-gray-400">
+                <i className="fas fa-envelope w-5"></i>
+                <a 
+                  href="mailto:contact@fan-gigs.com" 
+                  className="hover:text-white transition-colors duration-300"
+                >
+                  contact@fan-gigs.com
+                </a>
+              </div>
+              <div className="flex items-center gap-3 text-gray-400">
+                <i className="fas fa-headset w-5"></i>
+                <span>24/7 Support Available</span>
+              </div>
+            </div>
           </div>
-        </form>
-        <p className="text-gray-500 text-sm mt-8">© {new Date().getFullYear()} FanGigs. All rights reserved.</p>
+
+          {/* Quick Links */}
+          <div className="lg:col-span-1">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <i className="fas fa-link text-gray-400"></i>
+              Quick Links
+            </h3>
+            <ul className="space-y-4">
+              {quickLinks.map((link, index) => (
+                <li key={index}>
+                  <Link 
+                    href={link.href}
+                    className="flex items-center gap-3 text-gray-400 hover:text-white hover:pl-2 transition-all duration-300 group"
+                  >
+                    <i className={`${link.icon} w-4 text-gray-500 group-hover:text-gray-300`}></i>
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Legal & Support */}
+          <div className="lg:col-span-1">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <i className="fas fa-shield-alt text-gray-400"></i>
+              Legal & Support
+            </h3>
+            <ul className="space-y-4">
+              {legalLinks.map((link, index) => (
+                <li key={index}>
+                  <Link 
+                    href={link.href}
+                    className="text-gray-400 hover:text-white hover:pl-2 transition-all duration-300 block"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Newsletter */}
+          <div className="lg:col-span-1">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <i className="fas fa-newspaper text-gray-400"></i>
+              Stay Updated
+            </h3>
+            <p className="text-gray-400 mb-6">
+              Get the latest industry news and platform updates delivered to your inbox.
+            </p>
+            
+            <form onSubmit={handleNewsletterSubmit} className="space-y-4">
+              <div className="relative">
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email" 
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-300"
+                  disabled={isSubscribing}
+                  aria-label="Email address for newsletter"
+                />
+                <i className="fas fa-envelope absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+              </div>
+              
+              <button 
+                type="submit" 
+                disabled={isSubscribing || !email}
+                className="w-full px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+              >
+                {isSubscribing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Subscribing...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-paper-plane"></i>
+                    Subscribe
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Subscription Status */}
+            {subscriptionStatus && (
+              <div className={`mt-4 p-3 rounded-lg text-sm ${
+                subscriptionStatus.type === 'success' 
+                  ? 'bg-green-900/50 border border-green-700 text-green-300' 
+                  : 'bg-red-900/50 border border-red-700 text-red-300'
+              }`}>
+                <i className={`${subscriptionStatus.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle'} mr-2`}></i>
+                {subscriptionStatus.message}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Social Media & Bottom Section */}
+        <div className="border-t border-gray-700 pt-8">
+          <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
+            
+            {/* Social Links */}
+            <div className="flex items-center gap-6">
+              <span className="text-gray-400 font-medium">Follow us:</span>
+              <div className="flex gap-4">
+                {socialLinks.map((social, index) => (
+                  <a
+                    key={index}
+                    href={social.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 ${social.color} hover:bg-gray-700 transition-all duration-300 transform hover:scale-110 hover:shadow-lg`}
+                    aria-label={social.name}
+                  >
+                    <i className={social.icon}></i>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Copyright */}
+            <div className="text-center lg:text-right">
+              <p className="text-gray-500 text-sm">
+                © {currentYear} FanGigs. All rights reserved.
+              </p>
+              <p className="text-gray-600 text-xs mt-1">
+                Professional adult industry platform
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Platform Stats */}
+        <div className="border-t border-gray-800 mt-8 pt-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div className="group">
+              <div className="text-2xl font-bold text-white group-hover:text-gray-300 transition-colors">
+                24/7
+              </div>
+              <div className="text-sm text-gray-500">Platform Uptime</div>
+            </div>
+            <div className="group">
+              <div className="text-2xl font-bold text-white group-hover:text-gray-300 transition-colors">
+                100%
+              </div>
+              <div className="text-sm text-gray-500">Secure Transactions</div>
+            </div>
+            <div className="group">
+              <div className="text-2xl font-bold text-white group-hover:text-gray-300 transition-colors">
+                18+
+              </div>
+              <div className="text-sm text-gray-500">Verified Users Only</div>
+            </div>
+            <div className="group">
+              <div className="text-2xl font-bold text-white group-hover:text-gray-300 transition-colors">
+                Pro
+              </div>
+              <div className="text-sm text-gray-500">Industry Focus</div>
+            </div>
+          </div>
+        </div>
       </div>
     </footer>
   );
