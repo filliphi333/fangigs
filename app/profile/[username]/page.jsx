@@ -107,77 +107,7 @@ const ImageModal = ({ image, onClose }) => (
   </div>
 );
 
-// Contact form modal component
-const ContactModal = ({ isOpen, onClose, profile }) => {
-  const [message, setMessage] = useState('');
-  const [subject, setSubject] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    // Here you would implement your contact form logic
-    // For now, we'll just simulate a submission
-    setTimeout(() => {
-      setIsSubmitting(false);
-      onClose();
-      alert('Message sent successfully!');
-    }, 1000);
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Contact {profile.full_name}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            ×
-          </button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Subject</label>
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Message</label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full border rounded px-3 py-2 h-32"
-              required
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              {isSubmitting ? 'Sending...' : 'Send Message'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
 
 export default function ProfilePage() {
   const { username } = useParams();
@@ -187,7 +117,6 @@ export default function ProfilePage() {
   const [viewerId, setViewerId] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
   const [modalImage, setModalImage] = useState(null);
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [profileViews, setProfileViews] = useState(0);
@@ -405,6 +334,53 @@ export default function ProfilePage() {
     setRetryCount(prev => prev + 1);
   };
 
+  // Handle starting a conversation
+  const handleStartConversation = async () => {
+    if (!viewerId || !profile?.id) return;
+
+    try {
+      // Check if conversation already exists
+      const { data: existingConv, error: convError } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`and(participant1.eq.${viewerId},participant2.eq.${profile.id}),and(participant1.eq.${profile.id},participant2.eq.${viewerId})`)
+        .is('job_id', null) // Collab conversation (no job)
+        .single();
+
+      if (convError && convError.code !== 'PGRST116') {
+        throw convError;
+      }
+
+      let conversationId;
+
+      if (existingConv) {
+        // Use existing conversation
+        conversationId = existingConv.id;
+      } else {
+        // Create new conversation
+        const { data: newConv, error: createError } = await supabase
+          .from('conversations')
+          .insert({
+            participant1: viewerId,
+            participant2: profile.id,
+            job_id: null, // Collab conversation
+            status: 'active'
+          })
+          .select('id')
+          .single();
+
+        if (createError) throw createError;
+        conversationId = newConv.id;
+      }
+
+      // Redirect to messages
+      router.push(`/messages/${conversationId}`);
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      alert('Error starting conversation. Please try again.');
+    }
+  };
+
   if (loading) return <ProfileSkeleton />;
 
   if (error) {
@@ -607,6 +583,18 @@ export default function ProfilePage() {
                       {isSaved ? "★ Saved" : "♡ Save Talent"}
                     </button>
                   )}
+                  
+                  {/* Message/Collab buttons for authenticated users */}
+                  {viewerId && viewerId !== profile.id && (
+                    <button
+                      onClick={() => handleStartConversation()}
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-2 rounded-full font-medium text-sm transition-all transform hover:scale-105 hover:shadow-lg"
+                    >
+                      <i className="fas fa-message mr-2"></i>
+                      {profile.type === "producer" ? "Message" : "Request Collab"}
+                    </button>
+                  )}
+                  
                   {viewerId === profile.id && (
                     <Link href="/edit-profile">
                       <button className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-2 rounded-full font-medium text-sm transition-all transform hover:scale-105 hover:shadow-lg">
@@ -640,14 +628,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {viewerId && viewerId !== profile.id && (
-                    <button
-                      onClick={() => setIsContactModalOpen(true)}
-                      className="bg-blue-600 text-white px-5 py-2 rounded-full font-medium text-sm transition-all transform hover:scale-105 hover:bg-blue-700 hover:shadow-lg"
-                    >
-                      {profile.type === "producer" ? "Contact Producer" : "Request Collab"}
-                    </button>
-                  )}
           </div>
 
           {/* About section */}
@@ -776,12 +756,7 @@ export default function ProfilePage() {
           <ImageModal image={modalImage} onClose={() => setModalImage(null)} />
         )}
 
-        {/* Contact Modal */}
-        <ContactModal
-          isOpen={isContactModalOpen}
-          onClose={() => setIsContactModalOpen(false)}
-          profile={profile}
-        />
+        
       </div>
     </>
   );

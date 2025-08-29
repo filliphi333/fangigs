@@ -45,33 +45,34 @@ export default function FindWork() {
     fetchJobs();
   }, []);
 
-const fetchJobs = async () => {
-  try {
-    setLoading(true);
-    const today = new Date().toISOString().split("T")[0]; // 'YYYY-MM-DD'
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      const today = new Date().toISOString().split('T')[0];
 
-    const { data, error } = await supabase
-      .from("job_postings")
-     .select(`
-  id, title, ...,
-  profiles!job_postings_creator_id_fkey(
-    id, full_name, vanity_username, headshot_image
-  )
-`)
+      const { data, error } = await supabase
+        .from("job_postings")
+        .select(`
+          *,
+          profiles:creator_id(
+            id,
+            full_name,
+            vanity_username,
+            headshot_image
+          )
+        `)
+        .eq("is_active", true)
+        .or(`expiration.is.null,expiration.gte.${today}`)
+        .order("created_at", { ascending: false });
 
-    if (error) throw error;
-    setJobs(data ?? []);
-  } catch (err) {
-    console.error("Failed to fetch jobs:", {
-      message: err?.message,
-      details: err?.details,
-      hint: err?.hint,
-      code: err?.code,
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+      if (error) throw error;
+      setJobs(data || []);
+    } catch (error) {
+      console.error("Failed to fetch jobs:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredJobs = useMemo(() => {
     let filtered = jobs;
@@ -183,7 +184,7 @@ const fetchJobs = async () => {
     const date = new Date(dateString);
     const diffTime = Math.abs(now - date);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays < 7) return `${diffDays} days ago`;
@@ -226,7 +227,7 @@ const fetchJobs = async () => {
           <p className="text-xl md:text-2xl mb-8 text-blue-100">
             Discover exciting gigs and collaborate with top creators in the industry
           </p>
-          
+
           {/* Search Bar */}
           <div className="max-w-2xl mx-auto relative">
             <div className="relative">
@@ -280,7 +281,7 @@ const fetchJobs = async () => {
               Filters
               <i className={`fas fa-chevron-${showFilters ? 'up' : 'down'} text-sm`}></i>
             </button>
-            
+
             {(Object.values(filters).some(f => f) || searchTerm) && (
               <button
                 onClick={resetFilters}
@@ -320,7 +321,7 @@ const fetchJobs = async () => {
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Role Type</label>
                 <select
@@ -336,7 +337,7 @@ const fetchJobs = async () => {
                   <option value="Editor">Editor</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                 <select
@@ -351,7 +352,7 @@ const fetchJobs = async () => {
                   <option value="LGBT+">LGBT+</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Pay Range</label>
                 <select
@@ -476,7 +477,7 @@ const fetchJobs = async () => {
             >
               <i className="fas fa-chevron-left"></i>
             </button>
-            
+
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               const pageNum = i + 1;
               return (
@@ -493,7 +494,7 @@ const fetchJobs = async () => {
                 </button>
               );
             })}
-            
+
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}

@@ -1,139 +1,104 @@
-import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 
-function MessagesInbox({ userId }) {
-  const [conversations, setConversations] = useState([]);
+'use client';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import MessagesPanel from './MessagesPanel';
+
+export default function MessagesInbox({ currentUserId, userProfile }) {
+  const [stats, setStats] = useState({
+    totalConversations: 0,
+    unreadMessages: 0
+  });
   const [loading, setLoading] = useState(true);
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [newMessage, setNewMessage] = useState("");
+  const [error, setError] = useState(null);
 
+  // Fetch message stats
   useEffect(() => {
-    const fetchConversations = async () => {
-      const { data, error } = await supabase
-        .from("conversations")
-        .select(`
-          id,
-          created_at,
-          participant1,
-          participant2,
-          messages (
-            sender_id,
-            content,
-            created_at
-          ),
-          participant1:participant1 (
-            id,
-            full_name,
-            headshot_image
-          ),
-          participant2:participant2 (
-            id,
-            full_name,
-            headshot_image
-          )
-        `)
-        .or(`participant1.eq.${userId},participant2.eq.${userId}`)
-        .order("created_at", { ascending: false });
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      if (error || !data) {
-        console.error("Error fetching conversations:", error || "No data returned");
-      } else {
-        setConversations(data);
+        // Get conversation count
+        const { count: conversationsCount } = await supabase
+          .from('conversations')
+          .select('*', { count: 'exact', head: true })
+          .or(`participant1.eq.${currentUserId},participant2.eq.${currentUserId}`)
+          .eq('status', 'active');
+
+        // Get unread message count
+        const { count: unreadCount } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('recipient_id', currentUserId)
+          .eq('read', false);
+
+        setStats({
+          totalConversations: conversationsCount || 0,
+          unreadMessages: unreadCount || 0
+        });
+      } catch (err) {
+        console.error('Error fetching message stats:', err);
+        setError('Failed to load message statistics');
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
-    if (userId) fetchConversations();
-  }, [userId]);
+    if (currentUserId) {
+      fetchStats();
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+      // Set up real-time subscription for stats updates
+      const channel = supabase.channel('message_stats')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `recipient_id=eq.${currentUserId}`
+        }, () => {
+          fetchStats();
+        })
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'conversations',
+          filter: `or(participant1.eq.${currentUserId},participant2.eq.${currentUserId})`
+        }, () => {
+          fetchStats();
+        })
+        .subscribe();
 
-    const { error } = await supabase.from("messages").insert([
-      {
-        conversation_id: selectedConversation.id,
-        sender_id: userId,
-        content: newMessage.trim(),
-      },
-    ]);
-
-    if (error) {
-      console.error("Failed to send message:", error);
-      return;
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
+  }, [currentUserId]);
 
-    // Refresh messages
-    const updatedConvo = await supabase
-      .from("conversations")
-      .select(
-        `id, messages(sender_id, content, created_at)`
-      )
-      .eq("id", selectedConversation.id)
-      .single();
-
-    if (updatedConvo.data) {
-      setSelectedConversation((prev) => ({
-        ...prev,
-        messages: updatedConvo.data.messages,
-      }));
-      setNewMessage("");
-    }
-  };
-
-  if (loading) return <p>Loading conversations...</p>;
-  if (conversations.length === 0) return <p>No messages yet.</p>;
-
-  if (selectedConversation) {
-    const otherUser =
-      selectedConversation.participant1?.id === userId
-        ? selectedConversation.participant2
-        : selectedConversation.participant1;
-
+  if (loading) {
     return (
-      <div>
-        <button
-          onClick={() => setSelectedConversation(null)}
-          className="mb-4 text-blue-600 text-sm hover:underline"
-        >
-          ← Back to inbox
-        </button>
-
-        <h3 className="text-lg font-bold mb-2">
-          Chat with {otherUser?.full_name || "Unknown"}
-        </h3>
-
-        <div className="space-y-2 max-h-80 overflow-y-auto border p-3 rounded mb-4 bg-gray-50">
-          {selectedConversation.messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`p-2 rounded max-w-xs ${
-                msg.sender_id === userId
-                  ? "ml-auto bg-blue-100 text-right"
-                  : "bg-gray-100 text-left"
-              }`}
-            >
-              <p className="text-sm">{msg.content}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {new Date(msg.created_at).toLocaleString()}
-              </p>
-            </div>
-          ))}
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading your messages...</p>
         </div>
+      </div>
+    );
+  }
 
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type your message..."
-            className="flex-1 border rounded px-3 py-2 text-sm"
-          />
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto text-center bg-white rounded-2xl shadow-xl p-8">
+          <div className="text-red-500 text-6xl mb-4">
+            <i className="fas fa-exclamation-triangle"></i>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Messages</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
           <button
-            onClick={handleSendMessage}
-            className="bg-blue-600 text-white font-semibold px-4 rounded hover:bg-blue-700"
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all"
           >
-            Send
+            Try Again
           </button>
         </div>
       </div>
@@ -141,51 +106,63 @@ function MessagesInbox({ userId }) {
   }
 
   return (
-    <div className="space-y-4">
-      {conversations.map((convo) => {
-        const otherUser =
-          convo.participant1?.id === userId
-            ? convo.participant2
-            : convo.participant1;
-        const lastMessage = convo.messages?.[0];
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <i className="fas fa-inbox mr-3 text-blue-600"></i>
+          Your Messages
+        </h1>
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          Manage your conversations with talented creators and potential collaborators
+        </p>
 
-        return (
-          <div
-            key={convo.id}
-            className="flex items-center gap-4 p-3 border rounded hover:bg-blue-50 transition"
-          >
-            <img
-              src={
-                otherUser?.headshot_image
-                  ? `https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars/${otherUser.headshot_image}`
-                  : "/placeholder-avatar.png"
-              }
-              alt="avatar"
-              className="w-12 h-12 rounded-full object-cover"
-            />
-            <div className="flex-1">
-              <p className="font-semibold">
-                {otherUser?.full_name || "Unknown"}
-              </p>
-              <p className="text-sm text-gray-600 truncate">
-                {lastMessage?.content}
-              </p>
-              <p className="text-xs text-gray-400">
-                {lastMessage?.created_at &&
-                  new Date(lastMessage.created_at).toLocaleString()}
-              </p>
-            </div>
-            <button
-              onClick={() => setSelectedConversation(convo)}
-              className="text-blue-600 font-semibold text-sm"
-            >
-              View
-            </button>
+        {/* Stats */}
+        <div className="flex justify-center gap-8 mt-6">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">{stats.totalConversations}</div>
+            <div className="text-sm text-gray-600">Total Conversations</div>
           </div>
-        );
-      })}
+          <div className="text-center">
+            <div className="text-2xl font-bold text-red-500">{stats.unreadMessages}</div>
+            <div className="text-sm text-gray-600">Unread Messages</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Messages Panel */}
+      <div className="max-w-5xl mx-auto">
+        <MessagesPanel 
+          currentUserId={currentUserId} 
+          userProfile={userProfile} 
+        />
+      </div>
+
+      {/* Help Section */}
+      <div className="max-w-3xl mx-auto bg-blue-50 rounded-2xl p-6 text-center">
+        <h3 className="text-lg font-semibold text-blue-900 mb-2">
+          <i className="fas fa-lightbulb mr-2"></i>
+          Tips for Messaging
+        </h3>
+        <div className="grid md:grid-cols-2 gap-4 text-sm text-blue-800">
+          <div>
+            <i className="fas fa-shield-alt mr-2"></i>
+            Only creators and producers can initiate conversations
+          </div>
+          <div>
+            <i className="fas fa-handshake mr-2"></i>
+            Be professional and respectful in all communications
+          </div>
+          <div>
+            <i className="fas fa-clock mr-2"></i>
+            Response times may vary based on user availability
+          </div>
+          <div>
+            <i className="fas fa-file-image mr-2"></i>
+            You can share images and files in conversations
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-
-export default MessagesInbox;

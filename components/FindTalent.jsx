@@ -23,30 +23,46 @@ export default function FindTalent() {
   const [totalCount, setTotalCount] = useState(0);
   const [savedTalents, setSavedTalents] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null); // Added to store current user's profile
   const [showFilters, setShowFilters] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [savingId, setSavingId] = useState(null); // To track saving state
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Get current user for save functionality
+  // Get current user and their profile for save functionality
   useEffect(() => {
-    const getCurrentUser = async () => {
+    const fetchUserData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
-      
+
       if (user) {
         // Load saved talents
-        const { data } = await supabase
+        const { data: savedProfilesData } = await supabase
           .from('saved_profiles')
           .select('saved_profile_id')
           .eq('producer_id', user.id);
-        
-        if (data) {
-          setSavedTalents(new Set(data.map(item => item.saved_profile_id)));
+
+        if (savedProfilesData) {
+          setSavedTalents(new Set(savedProfilesData.map(item => item.saved_profile_id)));
+        }
+
+        // Fetch user profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('type') // Only need type for now
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Error fetching user profile:', profileError);
+          showNotification('Error loading your profile', 'error');
+        } else if (profileData) {
+          setUserProfile(profileData);
         }
       }
     };
-    getCurrentUser();
+    fetchUserData();
   }, []);
 
   const showNotification = (message, type = 'info') => {
@@ -60,15 +76,19 @@ export default function FindTalent() {
       return;
     }
 
+    setSavingId(talentId); // Set loading state for this talent
+
     try {
       if (savedTalents.has(talentId)) {
         // Remove from saved
-        await supabase
+        const { error } = await supabase
           .from('saved_profiles')
           .delete()
           .eq('producer_id', currentUser.id)
           .eq('saved_profile_id', talentId);
-        
+
+        if (error) throw error;
+
         setSavedTalents(prev => {
           const newSet = new Set(prev);
           newSet.delete(talentId);
@@ -77,20 +97,35 @@ export default function FindTalent() {
         showNotification('Talent removed from saved', 'success');
       } else {
         // Add to saved
-        await supabase
+        const { error } = await supabase
           .from('saved_profiles')
           .insert({
             producer_id: currentUser.id,
             saved_profile_id: talentId
           });
-        
+
+        if (error) throw error;
+
         setSavedTalents(prev => new Set([...prev, talentId]));
         showNotification('Talent saved successfully', 'success');
       }
     } catch (error) {
       console.error('Error saving talent:', error);
       showNotification('Error saving talent', 'error');
+    } finally {
+      setSavingId(null); // Reset loading state
     }
+  };
+
+  // Placeholder for handleMessageTalent
+  const handleMessageTalent = (e, talentId) => {
+    e.preventDefault();
+    // Logic to navigate or open a modal for messaging
+    // For now, just show a notification
+    console.log(`Initiating message with talent ID: ${talentId}`);
+    showNotification(`Initiating collaboration request with talent ${talentId}`, 'info');
+    // In a real app, you'd likely navigate to a messages page or open a modal
+    // Example: router.push(`/messages?to=${talentId}`);
   };
 
   const toggleTag = (tag) => {
@@ -127,7 +162,7 @@ export default function FindTalent() {
       const to = from + PAGE_SIZE - 1;
 
       const { data, error, count } = await baseQuery.range(from, to);
-      
+
       if (error) {
         console.error('Error fetching talents:', error);
         showNotification('Error loading talents', 'error');
@@ -193,7 +228,7 @@ export default function FindTalent() {
               </div>
             </div>
           </div>
-          
+
           {/* Main content skeleton */}
           <div className="flex-1">
             <div className="animate-pulse mb-8">
@@ -285,8 +320,8 @@ export default function FindTalent() {
                         key={opt}
                         onClick={() => setGender(gender === opt ? '' : opt)}
                         className={`px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
-                          gender === opt 
-                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent shadow-lg' 
+                          gender === opt
+                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent shadow-lg'
                             : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                         }`}
                       >
@@ -374,7 +409,7 @@ export default function FindTalent() {
                       </span>
                     )}
                   </button>
-                  
+
                   <button
                     onClick={clearAllFilters}
                     className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-xl font-semibold hover:bg-gray-200 transition-all"
@@ -409,21 +444,38 @@ export default function FindTalent() {
                   {models.map(model => (
                     <div key={model.id} className="group relative">
                       <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-                        {/* Save button */}
+                        {/* Action buttons - only show for logged in users */}
                         {currentUser && (
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              toggleSaveTalent(model.id);
-                            }}
-                            className={`absolute top-3 right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                              savedTalents.has(model.id)
-                                ? 'bg-red-500 text-white shadow-lg'
-                                : 'bg-white/80 text-gray-600 hover:bg-red-500 hover:text-white'
-                            }`}
-                          >
-                            <i className={`fas fa-heart text-sm`}></i>
-                          </button>
+                          <div className="absolute top-3 right-3 z-10 flex gap-2">
+                            {/* Save button - only for creators */}
+                            {userProfile?.type === 'creator' && (
+                              <button
+                                onClick={(e) => toggleSaveTalent(model.id)}
+                                disabled={savingId === model.id}
+                                className={`p-2 rounded-full transition-all duration-200 ${
+                                  savedTalents.has(model.id)
+                                    ? 'bg-pink-500 text-white shadow-md hover:bg-pink-600'
+                                    : 'bg-white text-gray-600 border border-gray-300 hover:bg-pink-50 hover:text-pink-500 hover:border-pink-200'
+                                }`}
+                                title={savedTalents.has(model.id) ? 'Remove from saved' : 'Save talent'}
+                              >
+                                {savingId === model.id ? (
+                                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <i className={savedTalents.has(model.id) ? 'fas fa-heart' : 'far fa-heart'}></i>
+                                )}
+                              </button>
+                            )}
+
+                            {/* Message button */}
+                            <button
+                              onClick={(e) => handleMessageTalent(e, model.id)}
+                              className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-all duration-200 shadow-md"
+                              title="Request Collab"
+                            >
+                              <i className="fas fa-message"></i>
+                            </button>
+                          </div>
                         )}
 
                         <Link href={`/profile/${model.vanity_username}`} className="block">
@@ -438,7 +490,7 @@ export default function FindTalent() {
                               className="object-cover group-hover:scale-105 transition-transform duration-300"
                               sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
                             />
-                            
+
                             {/* Overlay with quick info */}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                               <div className="absolute bottom-3 left-3 right-3 text-white text-xs">
@@ -473,7 +525,7 @@ export default function FindTalent() {
                             <p className="text-sm text-gray-600 mb-2">
                               @{model.vanity_username}
                             </p>
-                            
+
                             {/* Quick stats */}
                             <div className="flex items-center justify-between text-xs text-gray-500">
                               {model.gender && (

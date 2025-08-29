@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase"; // ✅ adjust path if needed
 import Image from "next/image";
+import Link from "next/link";
 
 export default function NewsSection() {
   const [articles, setArticles] = useState([]);
@@ -167,77 +168,108 @@ export default function NewsSection() {
   }
 
   return (
-    <section className="max-w-7xl mx-auto px-4 py-10">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-900">Industry News</h2>
-        {articles.length === 0 && (
-          <span className="text-gray-500 text-sm">No articles available</span>
+    <section className="max-w-7xl mx-auto px-4">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">Latest Articles</h3>
+          <p className="text-gray-600">
+            {articles.length > 0 ? `${articles.length} articles available` : 'No articles available'}
+          </p>
+        </div>
+        {articles.length > 0 && (
+          <Link 
+            href="/news" 
+            className="text-blue-600 hover:text-blue-800 font-semibold flex items-center"
+          >
+            View All <i className="fas fa-arrow-right ml-1"></i>
+          </Link>
         )}
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {articles.map((article) => (
-          <div
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {articles.slice(0, 6).map((article) => (
+          <article
             key={article.id}
-            className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden"
+            className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group"
           >
-            {article.image_url && (
-              <Image
-                src={article.image_url}
-                alt={article.title}
-                width={600}
-                height={300}
-                className="w-full h-40 object-cover"
-                onError={(e) => {
-                  e.target.src = '/images/placeholder.jpg';
-                }}
-              />
-            )}
-            <div className="p-4">
-              <div className="flex justify-between items-start mb-2">
-                <span className={`text-xs px-2 py-1 rounded-full ${
-                  article.isExternal 
-                    ? 'bg-blue-100 text-blue-800' 
-                    : 'bg-purple-100 text-purple-800'
-                }`}>
+            <div className="relative h-48 bg-gradient-to-br from-blue-100 to-purple-100 overflow-hidden">
+              {article.image_url ? (
+                <Image
+                  src={article.image_url}
+                  alt={article.title}
+                  width={600}
+                  height={300}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    e.target.src = '/images/placeholder.jpg';
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <i className="fas fa-newspaper text-6xl text-gray-300"></i>
+                </div>
+              )}
+              <div className="absolute top-3 right-3">
+                {article.isExternal ? (
+                  <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                    <i className="fas fa-external-link-alt mr-1"></i>
+                    External
+                  </span>
+                ) : (
+                  <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                    <i className="fas fa-home mr-1"></i>
+                    FanGigs
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-gray-500 font-medium">
                   {article.source}
                 </span>
                 {!article.isExternal && article.priority > 1 && (
-                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                    Priority
+                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">
+                    <i className="fas fa-star mr-1"></i>
+                    Featured
                   </span>
                 )}
               </div>
               
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
                 <a
                   href={article.url}
                   target={article.isExternal ? "_blank" : "_self"}
                   rel={article.isExternal ? "noopener noreferrer" : undefined}
-                  className="text-lg font-semibold text-gray-800 hover:text-purple-600 transition"
+                  className="hover:underline"
                 >
                   {article.title}
                 </a>
               </h3>
               
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="text-sm text-gray-600 mb-4 line-clamp-3">
                 {article.summary && article.summary.length > maxSummaryLength
                   ? article.summary.substring(0, maxSummaryLength) + "..."
-                  : article.summary || "No summary available"}
+                  : article.summary || "Click to read the full article and stay updated with industry news."}
               </p>
               
-              {article.summary && article.summary.length > maxSummaryLength && (
+              <div className="flex items-center justify-between">
                 <a
                   href={article.url}
                   target={article.isExternal ? "_blank" : "_self"}
                   rel={article.isExternal ? "noopener noreferrer" : undefined}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-sm text-blue-600 hover:text-blue-800 font-semibold flex items-center group-hover:translate-x-1 transition-transform"
                 >
-                  Read More →
+                  Read Article
+                  <i className="fas fa-arrow-right ml-2 text-xs"></i>
                 </a>
-              )}
+                <div className="text-xs text-gray-400">
+                  <i className="fas fa-clock mr-1"></i>
+                  {new Date().toLocaleDateString()}
+                </div>
+              </div>
             </div>
-          </div>
+          </article>
         ))}
       </div>
     </section>

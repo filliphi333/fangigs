@@ -40,7 +40,7 @@ export default function EditProfile() {
 
   const validateField = (name, value) => {
     const newErrors = { ...errors };
-    
+
     switch (name) {
       case 'full_name':
         if (!value || value.trim().length < 2) {
@@ -79,19 +79,19 @@ export default function EditProfile() {
       default:
         break;
     }
-    
+
     setErrors(newErrors);
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const newValue = type === "checkbox" ? checked : value;
-    
+
     setProfile((prev) => ({
       ...prev,
       [name]: newValue,
     }));
-    
+
     validateField(name, newValue);
   };
 
@@ -146,7 +146,7 @@ export default function EditProfile() {
       }
 
       setProfile(prev => ({ ...prev, [imageType]: path }));
-      
+
       // Show success message
       const successMsg = document.createElement('div');
       successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
@@ -178,7 +178,7 @@ export default function EditProfile() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validate all fields
     validateField('full_name', profile.full_name);
     validateField('vanity_username', profile.vanity_username);
@@ -186,16 +186,16 @@ export default function EditProfile() {
     validateField('instagram_handle', profile.instagram_handle);
     validateField('twitter_handle', profile.twitter_handle);
     validateField('snapchat_handle', profile.snapchat_handle);
-    
+
     if (Object.keys(errors).length > 0) {
       return;
     }
-    
+
     setUpdating(true);
-    
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const updates = {
         full_name: profile.full_name,
         vanity_username: profile.vanity_username,
@@ -219,12 +219,13 @@ export default function EditProfile() {
         full_body_image_4: profile.full_body_image_4,
         full_body_image_5: profile.full_body_image_5,
         type: profile.type,
+        open_to_messages: profile.open_to_messages,
       };
 
       const { error } = await supabase
         .from("profiles")
         .upsert([{ id: user.id, ...updates }], { onConflict: "id" });
-      
+
       if (error) {
         if (error.code === '23505') {
           throw new Error("That username is already taken! Please choose another one.");
@@ -232,9 +233,9 @@ export default function EditProfile() {
           throw new Error("Error updating profile: " + error.message);
         }
       }
-      
+
       router.push("/profile/" + updates.vanity_username);
-      
+
     } catch (error) {
       alert(error.message);
     } finally {
@@ -309,7 +310,7 @@ export default function EditProfile() {
           {/* Basic Info */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-800">Basic Information</h2>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Full Name *</label>
               <input 
@@ -372,7 +373,7 @@ export default function EditProfile() {
           {/* Physical Details */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-800">Details</h2>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Birthday</label>
@@ -384,7 +385,7 @@ export default function EditProfile() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Height (cm)</label>
                 <input 
@@ -411,7 +412,7 @@ export default function EditProfile() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Hair Color</label>
                 <input 
@@ -468,7 +469,7 @@ export default function EditProfile() {
         {/* Photos Section */}
         <div className="mt-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Photos</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <label className="block text-sm font-medium">Head-shot (Avatar)</label>
@@ -625,7 +626,7 @@ export default function EditProfile() {
         {/* Social Media */}
         <div className="mt-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Social Media</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Instagram URL</label>
@@ -638,7 +639,7 @@ export default function EditProfile() {
               />
               {errors.instagram_handle && <p className="text-red-500 text-sm mt-1">{errors.instagram_handle}</p>}
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Twitter URL</label>
               <input 
@@ -650,7 +651,7 @@ export default function EditProfile() {
               />
               {errors.twitter_handle && <p className="text-red-500 text-sm mt-1">{errors.twitter_handle}</p>}
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Snapchat URL</label>
               <input 
@@ -686,6 +687,31 @@ export default function EditProfile() {
                 This means fewer eyes on your profile and more effort needed to find work.
               </p>
             </div>
+          </div>
+        </div>
+        
+        {/* NEW: Open to Messages Setting */}
+        <div className="mt-8 p-6 bg-gray-50 rounded-lg">
+          <h3 className="text-lg font-semibold mb-4 text-gray-800">
+            Privacy Settings
+          </h3>
+          <div className="space-y-4">
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={profile.open_to_messages || false}
+                onChange={(e) =>
+                  setProfile({ ...profile, open_to_messages: e.target.checked })
+                }
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <div>
+                <span className="font-medium text-gray-800">Open to Messages</span>
+                <p className="text-sm text-gray-600">
+                  Allow anyone to send you messages (otherwise only people you've worked with or applied to can message you)
+                </p>
+              </div>
+            </label>
           </div>
         </div>
 
@@ -745,7 +771,7 @@ export default function EditProfile() {
                 ×
               </button>
             </div>
-            
+
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
               {DEFAULT_COVER_IMAGES.map((img) => (
                 <div key={img} className="relative group">
@@ -761,7 +787,7 @@ export default function EditProfile() {
                 </div>
               ))}
             </div>
-            
+
             <div className="border-t pt-4">
               <p className="text-sm font-medium mb-2">Or upload your own:</p>
               <input 

@@ -440,7 +440,7 @@ export default function TalentDashboard() {
             )}
 
             {activeTab === "messages" && (
-              <MessagesInbox userId={profile.id} />
+              <MessagesInbox currentUserId={profile.id} userProfile={profile} />
             )}
           </div>
         </div>

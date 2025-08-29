@@ -589,7 +589,7 @@ export default function ProducerDashboard() {
               </div>
               <h2 className="text-2xl font-bold text-gray-900">Messages</h2>
             </div>
-            <MessagesInbox userId={profile.id} />
+            <MessagesInbox currentUserId={profile.id} userProfile={profile} />
           </div>
         );
 
