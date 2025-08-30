@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -37,9 +38,14 @@ export default function AuthCallback() {
             const newProfile = {
               id: user.id,
               email: user.email,
-              full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+              full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New User',
               type: 'talent', // Default type, user can change later
               created_at: new Date().toISOString(),
+              is_public: false, // Start with private profile
+              phone: null,
+              company: null,
+              bio: null,
+              age: null,
             };
 
             const { error: createError } = await supabase

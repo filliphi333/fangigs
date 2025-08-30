@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
@@ -653,6 +654,11 @@ export default function ProducerDashboard() {
               <Link href={`/profile/${profile.vanity_username}`}>
                 <button className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-2 rounded-full font-medium text-sm transition-all transform hover:scale-105 hover:shadow-lg">
                   <i className="fas fa-eye mr-2"></i>View Profile
+                </button>
+              </Link>
+              <Link href="/manage-portfolio">
+                <button className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-2 rounded-full font-medium text-sm transition-all transform hover:scale-105 hover:shadow-lg">
+                  <i className="fas fa-briefcase mr-2"></i>Manage Portfolio
                 </button>
               </Link>
               <Link href="/post-job">

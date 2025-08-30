@@ -136,17 +136,28 @@ export default function MessageThread({ conversation, currentUserId, userProfile
     }, 1000);
   };
 
+  // Check if user can send messages:
+  // 1. Creators/producers can always send messages
+  // 2. If user initiated the conversation, they can send messages
+  // 3. If user didn't initiate but the conversation exists, they can reply (since only creators/producers can initiate)
+  const canSendMessage = userProfile?.type === 'creator' || 
+                        userProfile?.type === 'producer' || 
+                        conversation.initiator_id === currentUserId ||
+                        (conversation.initiator_id !== currentUserId && conversation.id);
+
   // Send message
   const sendMessage = async () => {
     if ((!newMessage.trim() && !selectedFile) || sending) return;
     
-    // Check if user can send messages (creators/producers or if they initiated this conversation)
-    const canSendMessage = userProfile?.type === 'creator' || 
-                          userProfile?.type === 'producer' || 
-                          conversation.initiator_id === currentUserId;
+    // Debug logging
+    console.log('MessageThread - userProfile:', userProfile);
+    console.log('MessageThread - userProfile.type:', userProfile?.type);
+    console.log('MessageThread - conversation.initiator_id:', conversation.initiator_id);
+    console.log('MessageThread - currentUserId:', currentUserId);
+    console.log('MessageThread - canSendMessage:', canSendMessage);
     
     if (!canSendMessage) {
-      alert('Only creators and producers can send messages');
+      alert('You can only reply to conversations initiated by creators or producers');
       return;
     }
 
@@ -473,7 +484,7 @@ export default function MessageThread({ conversation, currentUserId, userProfile
       </div>
 
       {/* Message Input */}
-      {(userProfile?.type === 'creator' || userProfile?.type === 'producer' || conversation.initiator_id === currentUserId) ? (
+      {canSendMessage ? (
         <div className="border-t border-gray-200 p-4 flex-shrink-0 bg-white">
           {/* File preview */}
           {selectedFile && (
@@ -542,7 +553,7 @@ export default function MessageThread({ conversation, currentUserId, userProfile
         <div className="border-t border-gray-200 p-4 bg-gray-50 text-center">
           <p className="text-gray-600 text-sm">
             <i className="fas fa-lock mr-2"></i>
-            Only verified creators and producers can send messages
+            You can only reply to conversations initiated by creators or producers
           </p>
         </div>
       )}

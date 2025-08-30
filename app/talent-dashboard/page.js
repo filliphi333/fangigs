@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -261,6 +262,12 @@ export default function TalentDashboard() {
                   <button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg">
                     <i className="fas fa-edit mr-2"></i>
                     Edit Profile
+                  </button>
+                </Link>
+                <Link href="/manage-portfolio">
+                  <button className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg">
+                    <i className="fas fa-briefcase mr-2"></i>
+                    Manage Portfolio
                   </button>
                 </Link>
                 <Link href={`/profile/${profile.vanity_username}`}>

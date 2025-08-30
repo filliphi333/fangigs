@@ -1,3 +1,4 @@
+
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -27,11 +28,23 @@ export default function Header() {
       try {
         setLoading(true);
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
-        if (userError) {
-          throw userError;
+
+        // Handle auth session missing as normal "not logged in" state
+        if (userError && userError.name === 'AuthSessionMissingError') {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
         }
-        
+
+        if (userError) {
+          console.error('Auth error:', userError);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
         if (user) {
           setUser(user);
           const { data: profileData, error: profileError } = await supabase
@@ -39,16 +52,32 @@ export default function Header() {
             .select('*')
             .eq('id', user.id)
             .single();
-          
+
           if (profileError) {
-            throw profileError;
+            console.error('Profile fetch error:', profileError);
+            // If profile doesn't exist (PGRST116), redirect to edit-profile only for authenticated users
+            if (profileError.code === 'PGRST116') {
+              showNotification('Please complete your profile setup', 'info');
+              setTimeout(() => {
+                window.location.href = '/edit-profile';
+              }, 2000);
+              setLoading(false);
+              return;
+            }
+            // For other profile errors, just log them and continue without profile
+            setProfile(null);
+          } else {
+            setProfile(profileData);
           }
-          
-          setProfile(profileData);
+        } else {
+          setUser(null);
+          setProfile(null);
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
-        showNotification('Error loading user data', 'error');
+        console.error('Unexpected error in auth flow:', error);
+        // Don't show notifications for auth errors to avoid spamming users
+        setUser(null);
+        setProfile(null);
       } finally {
         setLoading(false);
       }
@@ -160,6 +189,20 @@ export default function Header() {
               </div>
             ) : user && profile ? (
               <>
+                {/* Admin Dashboard Button - Only for admin users */}
+                {profile.role === 'admin' && (
+                  <Link href="/admin-dashboard">
+                    <button className="relative bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-yellow-900 px-4 py-2 rounded-lg font-bold hover:from-yellow-500 hover:via-yellow-600 hover:to-yellow-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 shadow-lg hover:shadow-xl transform hover:scale-105 border border-yellow-300">
+                      <span className="relative z-10 flex items-center">
+                        <i className="fas fa-crown mr-2 text-yellow-800"></i>
+                        Admin Dashboard
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 rounded-lg opacity-30 animate-pulse"></div>
+                    </button>
+                  </Link>
+                )}
+                
+                {/* Regular Dashboard Button */}
                 <Link href={profile.type === 'creator' ? '/producer-dashboard' : '/talent-dashboard'}>
                   <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                     <i className="fas fa-tachometer-alt mr-2"></i>
@@ -282,7 +325,23 @@ export default function Header() {
                   </div>
                 </div>
 
-                {/* Dashboard Button */}
+                {/* Admin Dashboard Button - Only for admin users */}
+                {profile.role === 'admin' && (
+                  <Link 
+                    href="/admin-dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <button className="w-full relative bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-yellow-900 py-3 rounded-lg font-bold hover:from-yellow-500 hover:via-yellow-600 hover:to-yellow-700 transition-all duration-300 shadow-lg border border-yellow-300 mb-2">
+                      <span className="relative z-10 flex items-center justify-center">
+                        <i className="fas fa-crown mr-2 text-yellow-800"></i>
+                        Admin Dashboard
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 rounded-lg opacity-30 animate-pulse"></div>
+                    </button>
+                  </Link>
+                )}
+
+                {/* Regular Dashboard Button */}
                 <Link 
                   href={profile.type === 'creator' ? '/producer-dashboard' : '/talent-dashboard'}
                   onClick={() => setMobileMenuOpen(false)}

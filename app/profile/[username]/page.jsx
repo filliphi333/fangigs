@@ -107,7 +107,133 @@ const ImageModal = ({ image, onClose }) => (
   </div>
 );
 
+// Portfolio Section Component
+function PortfolioSection({ profileId }) {
+  const [portfolioItems, setPortfolioItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const fetchPortfolio = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('talent_portfolio')
+          .select('*')
+          .eq('user_id', profileId)
+          .eq('is_public', true)
+          .order('project_date', { ascending: false });
+
+        if (error) throw error;
+        setPortfolioItems(data || []);
+      } catch (error) {
+        console.error('Error fetching portfolio:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (profileId) {
+      fetchPortfolio();
+    }
+  }, [profileId]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="bg-gradient-to-r from-purple-500 to-rose-500 p-2 rounded-lg">
+            <i className="fas fa-briefcase text-white"></i>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900">Portfolio & Experience</h2>
+        </div>
+        <div className="animate-pulse flex flex-col gap-4">
+          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (portfolioItems.length === 0) {
+    return null; // Don't show section if no portfolio items
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-lg p-8">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="bg-gradient-to-r from-purple-500 to-rose-500 p-2 rounded-lg">
+          <i className="fas fa-briefcase text-white"></i>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900">Portfolio & Experience</h2>
+        <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-medium">
+          {portfolioItems.length} items
+        </span>
+      </div>
+
+      <div className="space-y-6">
+        {portfolioItems.map((item) => (
+          <div key={item.id} className="border-l-4 border-purple-500 pl-6 pb-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-3">
+              <h3 className="text-xl font-bold text-gray-900">{item.project_title}</h3>
+              <div className="flex flex-wrap gap-2">
+                {item.project_type && (
+                  <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
+                    {item.project_type}
+                  </span>
+                )}
+                {item.project_date && (
+                  <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">
+                    {new Date(item.project_date).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {item.project_description && (
+              <p className="text-gray-700 mb-3 leading-relaxed">{item.project_description}</p>
+            )}
+
+            {item.collaborators && item.collaborators.length > 0 && (
+              <div className="mb-3">
+                <span className="text-sm font-semibold text-gray-600">Collaborators: </span>
+                <div className="inline-flex flex-wrap gap-2 mt-1">
+                  {item.collaborators.map((collab, index) => (
+                    <span key={index} className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-sm">
+                      {collab.name}
+                      {collab.social_handle && collab.platform && (
+                        <span className="text-blue-500 ml-1">
+                          (@{collab.social_handle} on {collab.platform})
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {item.media_links && item.media_links.length > 0 && (
+              <div className="flex flex-wrap gap-3">
+                <span className="text-sm font-semibold text-gray-600">Previews: </span>
+                {item.media_links.map((link, index) => (
+                  <a
+                    key={index}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium hover:from-blue-600 hover:to-purple-600 transition-all"
+                  >
+                    <i className="fas fa-external-link-alt mr-1"></i>
+                    Sample {index + 1}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { username } = useParams();
@@ -199,7 +325,7 @@ export default function ProfilePage() {
   }, [username, retryCount]);
 
   useEffect(() => {
-    if (!profile || profile.type !== "producer") return;
+    if (!profile || profile.type !== "creator") return;
 
     (async () => {
       try {
@@ -510,7 +636,7 @@ export default function ProfilePage() {
                   <div className="flex justify-center sm:justify-start gap-6 mb-4">
                     <div className="text-center">
                       <div className="font-bold text-xl text-gray-900">0</div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wide">Saved by Producers</div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide">Saved by Creators</div>
                     </div>
                     <div className="text-center">
                       <div className="font-bold text-xl text-gray-900">{getProfileCompleteness()}%</div>
@@ -571,7 +697,7 @@ export default function ProfilePage() {
 
                 {/* Action buttons */}
                 <div className="flex flex-col sm:flex-row justify-center sm:justify-start gap-4 mt-6">
-                  {viewerId && viewerId !== profile.id && profile.type !== "producer" && viewerProfile?.type === "creator" && (
+                  {viewerId && viewerId !== profile.id && profile.type === "talent" && viewerProfile?.type === "creator" && (
                     <button
                       onClick={handleSaveToggle}
                       className={`px-4 py-2 rounded-full font-medium text-sm transition-all transform hover:scale-105 ${
@@ -583,7 +709,7 @@ export default function ProfilePage() {
                       {isSaved ? "★ Saved" : "♡ Save Talent"}
                     </button>
                   )}
-                  
+
                   {/* Message/Collab buttons for authenticated users */}
                   {viewerId && viewerId !== profile.id && (
                     <button
@@ -591,10 +717,10 @@ export default function ProfilePage() {
                       className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-2 rounded-full font-medium text-sm transition-all transform hover:scale-105 hover:shadow-lg"
                     >
                       <i className="fas fa-message mr-2"></i>
-                      {profile.type === "producer" ? "Message" : "Request Collab"}
+                      {profile.type === "creator" ? "Message" : "Request Collab"}
                     </button>
                   )}
-                  
+
                   {viewerId === profile.id && (
                     <Link href="/edit-profile">
                       <button className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-2 rounded-full font-medium text-sm transition-all transform hover:scale-105 hover:shadow-lg">
@@ -647,8 +773,13 @@ export default function ProfilePage() {
             </div>
           </section>
 
+          {/* Portfolio Section */}
+          <div className="mt-8">
+            <PortfolioSection profileId={profile.id} />
+          </div>
+
           {/* Enhanced gallery section */}
-          {profile.type !== "producer" && galleryImages.length > 0 && (
+          {profile.type === "talent" && galleryImages.length > 0 && (
             <section className="mt-8">
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <div className="flex items-center gap-3 mb-6">
@@ -676,8 +807,8 @@ export default function ProfilePage() {
             </section>
           )}
 
-          {/* Producer jobs section */}
-          {profile.type === "producer" && (
+          {/* Creator jobs section */}
+          {profile.type === "creator" && (
             <section className="mt-8">
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <div className="flex items-center gap-3 mb-6">
@@ -695,7 +826,7 @@ export default function ProfilePage() {
                     <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
                       <i className="fas fa-briefcase text-4xl text-gray-400"></i>
                     </div>
-                    <p className="text-gray-500 font-medium">This producer hasn't posted any gigs yet.</p>
+                    <p className="text-gray-500 font-medium">This creator hasn't posted any gigs yet.</p>
                     <p className="text-gray-400 text-sm mt-1">Check back later for new opportunities!</p>
                   </div>
                 ) : (
@@ -756,7 +887,7 @@ export default function ProfilePage() {
           <ImageModal image={modalImage} onClose={() => setModalImage(null)} />
         )}
 
-        
+
       </div>
     </>
   );
