@@ -1,4 +1,3 @@
-
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
@@ -9,52 +8,12 @@ import MessagesInbox from "../../components/MessagesInbox";
 import SavedTalentsList from "../../components/SavedTalentsList";
 
 /* ─────────────────────── ApplicationsList COMPONENT ─────────────────────── */
-function ApplicationsList({ jobs }) {
-  const [jobApplications, setJobApplications] = useState({});
+function ApplicationsList({ jobs, jobApplications, setJobApplications, handleStatusChange, handleMessageApplicant, profile, router, getStatusStyle, getStatusLabel }) {
   const [expandedJobs, setExpandedJobs] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchApplicationsForJobs = async () => {
-      if (jobs.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      const jobIds = jobs.map(job => job.id);
-      const { data, error } = await supabase
-        .from("job_applications")
-        .select(`
-          id,
-          created_at,
-          job_id,
-          profiles:talent_id (
-            id,
-            full_name,
-            headshot_image,
-            vanity_username
-          )
-        `)
-        .in("job_id", jobIds);
-
-      if (error) {
-        console.error("Error fetching applications:", error);
-      } else {
-        // Group applications by job_id
-        const grouped = {};
-        data.forEach(app => {
-          if (!grouped[app.job_id]) {
-            grouped[app.job_id] = [];
-          }
-          grouped[app.job_id].push(app);
-        });
-        setJobApplications(grouped);
-      }
-
-      setLoading(false);
-    };
-
-    fetchApplicationsForJobs();
+    setLoading(false);
   }, [jobs]);
 
   const toggleJobExpansion = (jobId) => {
@@ -87,7 +46,7 @@ function ApplicationsList({ jobs }) {
       {jobs.map((job) => {
         const applications = jobApplications[job.id] || [];
         const isExpanded = expandedJobs[job.id];
-        
+
         return (
           <div key={job.id} className="bg-white border-2 border-gray-100 rounded-xl overflow-hidden">
             {/* Job Header - Clickable */}
@@ -185,6 +144,9 @@ function ApplicationsList({ jobs }) {
                                 <i className="fas fa-clock text-green-500"></i>
                                 <span>{new Date(app.created_at).toLocaleTimeString()}</span>
                               </div>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusStyle(app.status || 'pending')}`}>
+                                {getStatusLabel(app.status || 'pending')}
+                              </span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -193,11 +155,29 @@ function ApplicationsList({ jobs }) {
                                 href={`/profile/${app.profiles.vanity_username}`}
                                 target="_blank"
                               >
-                                <button className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-blue-700 transition-colors">
-                                  <i className="fas fa-eye mr-1"></i>View Profile
+                                <button className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                                  <i className="fas fa-eye mr-1"></i>Profile
                                 </button>
                               </Link>
                             )}
+                            <button 
+                              onClick={() => handleMessageApplicant(app.profiles.id, job.id)}
+                              className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                            >
+                              <i className="fas fa-comment mr-1"></i>Message
+                            </button>
+                            <select
+                              value={app.status || 'pending'}
+                              onChange={(e) => handleStatusChange(app.id, e.target.value)}
+                              className="bg-gray-100 border border-gray-300 rounded-lg px-2 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="reviewing">Under Review</option>
+                              <option value="shortlisted">Shortlisted</option>
+                              <option value="interviewed">Interviewed</option>
+                              <option value="hired">Hired</option>
+                              <option value="rejected">Rejected</option>
+                            </select>
                           </div>
                         </div>
                       </div>
@@ -221,6 +201,7 @@ export default function ProducerDashboard() {
   const [jobPosts, setJobPosts] = useState([]);
   const [applicationCount, setApplicationCount] = useState(0);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [jobApplications, setJobApplications] = useState({});
   const router = useRouter();
 
   const handleDelete = async (jobId) => {
@@ -238,6 +219,124 @@ export default function ProducerDashboard() {
     } else {
       setJobPosts((prev) => prev.filter((j) => j.id !== jobId));
       alert("Job deleted.");
+    }
+  };
+
+    const handleStatusChange = async (applicationId, newStatus) => {
+    try {
+      const { data, error } = await supabase
+        .from("job_applications")
+        .update({ status: newStatus })
+        .eq("id", applicationId)
+        .select();
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error('Application not found or you do not have permission to update it');
+      }
+
+      // Update local state to reflect the change
+      setJobApplications(prev => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach(jobId => {
+          updated[jobId] = updated[jobId].map(app => 
+            app.id === applicationId ? { ...app, status: newStatus } : app
+          );
+        });
+        return updated;
+      });
+
+      // Show success message
+      const successMsg = document.createElement('div');
+      successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+      successMsg.textContent = `Application status updated to ${getStatusLabel(newStatus)}`;
+      document.body.appendChild(successMsg);
+      setTimeout(() => document.body.removeChild(successMsg), 3000);
+
+    } catch (error) {
+      console.error('Error updating application status:', error);
+      alert('Failed to update application status. Please try again.');
+    }
+  };
+
+  const handleMessageApplicant = async (talentId, jobId) => {
+    try {
+      // Check if conversation already exists for this job
+      const { data: existingConv, error: convError } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`and(participant1.eq.${profile.id},participant2.eq.${talentId}),and(participant1.eq.${talentId},participant2.eq.${profile.id})`)
+        .eq('job_id', jobId)
+        .maybeSingle();
+
+      if (convError) throw convError;
+
+      let conversationId;
+
+      if (existingConv) {
+        conversationId = existingConv.id;
+      } else {
+        // Create new conversation
+        const { data: newConv, error: createError } = await supabase
+          .from('conversations')
+          .insert({
+            participant1: profile.id,
+            participant2: talentId,
+            job_id: jobId,
+            initiator_id: profile.id,
+            status: 'active',
+            last_message_at: new Date().toISOString()
+          })
+          .select('id')
+          .single();
+
+        if (createError) throw createError;
+        conversationId = newConv.id;
+      }
+
+      router.push(`/messages/${conversationId}`);
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      alert('Failed to start conversation. Please try again.');
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'reviewing':
+        return 'bg-blue-100 text-blue-800';
+      case 'shortlisted':
+        return 'bg-purple-100 text-purple-800';
+      case 'interviewed':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'hired':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'reviewing':
+        return 'Under Review';
+      case 'shortlisted':
+        return 'Shortlisted';
+      case 'interviewed':
+        return 'Interviewed';
+      case 'hired':
+        return 'Hired';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return 'Pending';
     }
   };
 
@@ -288,7 +387,7 @@ export default function ProducerDashboard() {
 
       // Update local profile state
       setProfile(prev => ({ ...prev, headshot_image: path }));
-      
+
       // Show success message
       const successMsg = document.createElement('div');
       successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
@@ -345,13 +444,36 @@ export default function ProducerDashboard() {
         setJobPosts(jobs);
       }
 
+      // Fetch applications with full details
+      const jobIds = jobs.map((j) => j.id);
       const { data: apps, error: appsError } = await supabase
         .from("job_applications")
-        .select("id")
-        .in("job_id", jobs.map((j) => j.id));
+        .select(`
+          id,
+          created_at,
+          job_id,
+          status,
+          profiles:talent_id (
+            id,
+            full_name,
+            headshot_image,
+            vanity_username
+          )
+        `)
+        .in("job_id", jobIds);
 
-      if (!appsError) {
+      if (!appsError && apps) {
         setApplicationCount(apps.length);
+
+        // Group applications by job_id
+        const grouped = {};
+        apps.forEach(app => {
+          if (!grouped[app.job_id]) {
+            grouped[app.job_id] = [];
+          }
+          grouped[app.job_id].push(app);
+        });
+        setJobApplications(grouped);
       }
 
       setLoading(false);
@@ -462,7 +584,7 @@ export default function ProducerDashboard() {
                 </button>
               </Link>
             </div>
-            
+
             {jobPosts.length === 0 ? (
               <div className="text-center py-12">
                 <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
@@ -563,7 +685,17 @@ export default function ProducerDashboard() {
                 <p className="text-gray-400 text-sm">Post a gig to start receiving applications!</p>
               </div>
             ) : (
-              <ApplicationsList jobs={jobPosts} />
+              <ApplicationsList 
+                jobs={jobPosts} 
+                jobApplications={jobApplications} 
+                setJobApplications={setJobApplications}
+                handleStatusChange={handleStatusChange}
+                handleMessageApplicant={handleMessageApplicant}
+                profile={profile}
+                router={router}
+                getStatusStyle={getStatusStyle}
+                getStatusLabel={getStatusLabel}
+              />
             )}
           </div>
         );
@@ -639,7 +771,7 @@ export default function ProducerDashboard() {
                 )}
               </label>
             </div>
-            
+
             <div className="flex-1 text-center lg:text-left">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
                 {profile.full_name}

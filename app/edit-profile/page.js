@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
@@ -9,6 +10,23 @@ const DEFAULT_COVER_IMAGES = [
   "default11.jpg","default12.jpg","default13.jpg","default14.jpg","default15.jpg"
 ];
 
+const COLOR_SCHEMES = {
+  solid: [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+  ],
+  gradients: [
+    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'
+  ]
+};
+
 export default function EditProfile() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState({});
@@ -16,6 +34,10 @@ export default function EditProfile() {
   const [coverModalOpen, setCoverModalOpen] = useState(false);
   const [uploadingImages, setUploadingImages] = useState({});
   const [errors, setErrors] = useState({});
+  const [heightUnit, setHeightUnit] = useState('cm');
+  const [collabs, setCollabs] = useState([]);
+  const [newCollab, setNewCollab] = useState('');
+  const [uploadPreview, setUploadPreview] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -31,7 +53,14 @@ export default function EditProfile() {
         .eq("id", user.id)
         .single();
       if (!error) {
-        setProfile({ ...data, is_public: data.is_public ?? true });
+        setProfile({ 
+          ...data, 
+          is_public: data.is_public ?? true,
+          open_to_messages: data.open_to_messages ?? true
+        });
+        if (data.collabs) {
+          setCollabs(data.collabs);
+        }
       }
       setLoading(false);
     };
@@ -40,7 +69,7 @@ export default function EditProfile() {
 
   const validateField = (name, value) => {
     const newErrors = { ...errors };
-
+    
     switch (name) {
       case 'full_name':
         if (!value || value.trim().length < 2) {
@@ -62,44 +91,68 @@ export default function EditProfile() {
         break;
       case 'height':
         if (value && (value < 120 || value > 250)) {
-          newErrors.height = 'Height must be between 120-250 cm';
+          newErrors.height = 'Height must be between 120-250 cm (or 4-8 ft)';
         } else {
           delete newErrors.height;
         }
         break;
-      case 'instagram_handle':
-      case 'twitter_handle':
-      case 'snapchat_handle':
-        if (value && !value.startsWith('http')) {
-          newErrors[name] = 'Please enter a complete URL starting with http:// or https://';
+      case 'phone':
+        if (value && !/^\+?[\d\s\-\(\)]+$/.test(value)) {
+          newErrors.phone = 'Please enter a valid phone number';
         } else {
-          delete newErrors[name];
+          delete newErrors.phone;
         }
         break;
       default:
         break;
     }
-
+    
     setErrors(newErrors);
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const newValue = type === "checkbox" ? checked : value;
-
+    
     setProfile((prev) => ({
       ...prev,
       [name]: newValue,
     }));
-
+    
     validateField(name, newValue);
+  };
+
+  const convertHeight = (value, fromUnit, toUnit) => {
+    if (!value) return '';
+    if (fromUnit === toUnit) return value;
+    
+    if (fromUnit === 'cm' && toUnit === 'ft') {
+      return Math.round((value / 30.48) * 10) / 10; // Convert cm to ft
+    } else if (fromUnit === 'ft' && toUnit === 'cm') {
+      return Math.round(value * 30.48); // Convert ft to cm
+    }
+    return value;
+  };
+
+  const handleHeightUnitChange = (newUnit) => {
+    if (profile.height) {
+      const convertedHeight = convertHeight(profile.height, heightUnit, newUnit);
+      setProfile(prev => ({ ...prev, height: convertedHeight }));
+    }
+    setHeightUnit(newUnit);
   };
 
   const handleImageUpload = async (e, imageType) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Set uploading state
+    // Create preview for cover image uploads
+    if (imageType === "cover_image") {
+      const reader = new FileReader();
+      reader.onload = (e) => setUploadPreview(e.target.result);
+      reader.readAsDataURL(file);
+    }
+
     setUploadingImages(prev => ({ ...prev, [imageType]: true }));
 
     try {
@@ -108,7 +161,6 @@ export default function EditProfile() {
         throw new Error("Please log in to upload images");
       }
 
-      // Validate file
       if (file.size > 5 * 1024 * 1024) {
         throw new Error("File too large. Please choose an image under 5MB.");
       }
@@ -129,11 +181,7 @@ export default function EditProfile() {
         });
 
       if (uploadError) {
-        if (uploadError.statusCode === '403' && uploadError.message.includes('row-level security policy')) {
-          throw new Error("Upload failed: Storage permissions not configured. Please contact support.");
-        } else {
-          throw new Error(`Upload failed: ${uploadError.message}`);
-        }
+        throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
       const { error: profileError } = await supabase
@@ -146,8 +194,12 @@ export default function EditProfile() {
       }
 
       setProfile(prev => ({ ...prev, [imageType]: path }));
-
-      // Show success message
+      
+      if (imageType === "cover_image") {
+        setCoverModalOpen(false);
+        setUploadPreview(null);
+      }
+      
       const successMsg = document.createElement('div');
       successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
       successMsg.textContent = 'Image uploaded successfully!';
@@ -155,47 +207,93 @@ export default function EditProfile() {
       setTimeout(() => document.body.removeChild(successMsg), 3000);
 
     } catch (error) {
-      // Show error message
       const errorMsg = document.createElement('div');
       errorMsg.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
       errorMsg.textContent = error.message;
       document.body.appendChild(errorMsg);
       setTimeout(() => document.body.removeChild(errorMsg), 5000);
+      setUploadPreview(null);
     } finally {
       setUploadingImages(prev => ({ ...prev, [imageType]: false }));
     }
   };
 
   const handleCoverSelect = async (filename) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase
-      .from("profiles")
-      .update({ cover_image: filename })
-      .eq("id", user.id);
-    setProfile(prev => ({ ...prev, cover_image: filename }));
-    setCoverModalOpen(false);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({ cover_image: filename })
+        .eq("id", user.id);
+      
+      if (error) throw new Error(`Failed to update cover image: ${error.message}`);
+      
+      setProfile(prev => ({ ...prev, cover_image: filename }));
+      setCoverModalOpen(false);
+      setUploadPreview(null);
+    } catch (error) {
+      console.error('Error updating cover image:', error);
+      alert(`Error updating cover image: ${error.message}`);
+    }
+  };
+
+  const handleColorSchemeSelect = async (colorValue, isGradient = false) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const coverValue = isGradient ? `gradient:${colorValue}` : `color:${colorValue}`;
+      
+      const { error } = await supabase
+        .from("profiles")
+        .update({ cover_image: coverValue })
+        .eq("id", user.id);
+      
+      if (error) throw new Error(`Failed to update cover: ${error.message}`);
+      
+      setProfile(prev => ({ ...prev, cover_image: coverValue }));
+      setCoverModalOpen(false);
+      setUploadPreview(null);
+    } catch (error) {
+      console.error('Error updating cover:', error);
+      alert(`Error updating cover: ${error.message}`);
+    }
+  };
+
+  const addCollab = () => {
+    if (newCollab.trim() && !collabs.includes(newCollab.trim())) {
+      const updatedCollabs = [...collabs, newCollab.trim()];
+      setCollabs(updatedCollabs);
+      setProfile(prev => ({ ...prev, collabs: updatedCollabs }));
+      setNewCollab('');
+    }
+  };
+
+  const removeCollab = (index) => {
+    const updatedCollabs = collabs.filter((_, i) => i !== index);
+    setCollabs(updatedCollabs);
+    setProfile(prev => ({ ...prev, collabs: updatedCollabs }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate all fields
+    
     validateField('full_name', profile.full_name);
     validateField('vanity_username', profile.vanity_username);
     validateField('height', profile.height);
-    validateField('instagram_handle', profile.instagram_handle);
-    validateField('twitter_handle', profile.twitter_handle);
-    validateField('snapchat_handle', profile.snapchat_handle);
-
+    validateField('phone', profile.phone);
+    
     if (Object.keys(errors).length > 0) {
       return;
     }
-
+    
     setUpdating(true);
-
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
+      
       const updates = {
         full_name: profile.full_name,
         vanity_username: profile.vanity_username,
@@ -211,6 +309,7 @@ export default function EditProfile() {
         twitter_handle: profile.twitter_handle,
         snapchat_handle: profile.snapchat_handle,
         is_public: profile.is_public,
+        open_to_messages: profile.open_to_messages,
         cover_image: profile.cover_image,
         headshot_image: profile.headshot_image,
         full_body_image_1: profile.full_body_image_1,
@@ -219,13 +318,15 @@ export default function EditProfile() {
         full_body_image_4: profile.full_body_image_4,
         full_body_image_5: profile.full_body_image_5,
         type: profile.type,
-        open_to_messages: profile.open_to_messages,
+        phone: profile.phone,
+        company: profile.company,
+        collabs: collabs,
       };
 
       const { error } = await supabase
         .from("profiles")
         .upsert([{ id: user.id, ...updates }], { onConflict: "id" });
-
+      
       if (error) {
         if (error.code === '23505') {
           throw new Error("That username is already taken! Please choose another one.");
@@ -233,9 +334,9 @@ export default function EditProfile() {
           throw new Error("Error updating profile: " + error.message);
         }
       }
-
+      
       router.push("/profile/" + updates.vanity_username);
-
+      
     } catch (error) {
       alert(error.message);
     } finally {
@@ -244,6 +345,67 @@ export default function EditProfile() {
   };
 
   const bucketURL = "https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars";
+
+  const renderCoverPreview = () => {
+    if (!profile.cover_image) {
+      return (
+        <div className="w-full h-48 sm:h-64 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg flex items-center justify-center text-gray-600">
+          <div className="text-center">
+            <i className="fas fa-image text-4xl mb-2"></i>
+            <p>No Cover Image</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (profile.cover_image.startsWith('color:')) {
+      const color = profile.cover_image.replace('color:', '');
+      return (
+        <div 
+          className="w-full h-48 sm:h-64 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: color }}
+        >
+          <div className="text-center text-white">
+            <i className="fas fa-palette text-4xl mb-2"></i>
+            <p>Color Cover</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (profile.cover_image.startsWith('gradient:')) {
+      const gradient = profile.cover_image.replace('gradient:', '');
+      return (
+        <div 
+          className="w-full h-48 sm:h-64 rounded-lg flex items-center justify-center"
+          style={{ background: gradient }}
+        >
+          <div className="text-center text-white">
+            <i className="fas fa-palette text-4xl mb-2"></i>
+            <p>Gradient Cover</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (profile.cover_image.startsWith('default')) {
+      return (
+        <img
+          src={`/images/covers/${profile.cover_image}`}
+          alt="Cover"
+          className="object-cover object-center w-full h-48 sm:h-64 rounded-lg"
+        />
+      );
+    }
+
+    return (
+      <img
+        src={`${bucketURL}/${profile.cover_image}`}
+        alt="Cover"
+        className="object-cover object-center w-full h-48 sm:h-64 rounded-lg"
+      />
+    );
+  };
 
   if (loading) {
     return (
@@ -268,24 +430,7 @@ export default function EditProfile() {
 
         {/* Cover with overlapping Avatar */}
         <div className="mb-6 relative">
-          {profile.cover_image ? (
-            <img
-              src={
-                profile.cover_image.startsWith("default")
-                  ? `/images/covers/${profile.cover_image}`
-                  : `${bucketURL}/${profile.cover_image}`
-              }
-              alt="Cover"
-              className="object-cover object-center w-full h-48 sm:h-64 rounded-lg"
-            />
-          ) : (
-            <div className="w-full h-48 sm:h-64 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg flex items-center justify-center text-gray-600">
-              <div className="text-center">
-                <i className="fas fa-image text-4xl mb-2"></i>
-                <p>No Cover Image</p>
-              </div>
-            </div>
-          )}
+          {renderCoverPreview()}
 
           {/* Avatar */}
           {profile.headshot_image && (
@@ -310,7 +455,7 @@ export default function EditProfile() {
           {/* Basic Info */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-800">Basic Information</h2>
-
+            
             <div>
               <label className="block text-sm font-medium mb-1">Full Name *</label>
               <input 
@@ -368,12 +513,36 @@ export default function EditProfile() {
               />
               <p className="text-xs text-gray-500 mt-1">Share your experience and interests (max 500 characters)</p>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Company (Optional)</label>
+              <input 
+                name="company" 
+                placeholder="Your company or agency name" 
+                value={profile.company || ""} 
+                onChange={handleChange} 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Phone Number (Optional)</label>
+              <input 
+                name="phone" 
+                type="tel"
+                placeholder="+1 (555) 123-4567" 
+                value={profile.phone || ""} 
+                onChange={handleChange} 
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.phone ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+            </div>
           </div>
 
           {/* Physical Details */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-800">Details</h2>
-
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Birthday</label>
@@ -385,18 +554,29 @@ export default function EditProfile() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-
+              
               <div>
-                <label className="block text-sm font-medium mb-1">Height (cm)</label>
-                <input 
-                  type="number" 
-                  name="height" 
-                  min="120" 
-                  max="250" 
-                  value={profile.height || ""} 
-                  onChange={handleChange} 
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.height ? 'border-red-500' : 'border-gray-300'}`}
-                />
+                <label className="block text-sm font-medium mb-1">Height</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="number" 
+                    name="height" 
+                    min={heightUnit === 'cm' ? "120" : "4"} 
+                    max={heightUnit === 'cm' ? "250" : "8"} 
+                    step={heightUnit === 'cm' ? "1" : "0.1"}
+                    value={profile.height || ""} 
+                    onChange={handleChange} 
+                    className={`flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.height ? 'border-red-500' : 'border-gray-300'}`}
+                  />
+                  <select
+                    value={heightUnit}
+                    onChange={(e) => handleHeightUnitChange(e.target.value)}
+                    className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="cm">cm</option>
+                    <option value="ft">ft</option>
+                  </select>
+                </div>
                 {errors.height && <p className="text-red-500 text-sm mt-1">{errors.height}</p>}
               </div>
             </div>
@@ -412,7 +592,7 @@ export default function EditProfile() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-
+              
               <div>
                 <label className="block text-sm font-medium mb-1">Hair Color</label>
                 <input 
@@ -466,10 +646,51 @@ export default function EditProfile() {
           </div>
         </div>
 
+        {/* Collaborations Section */}
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Collaborations</h2>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Add collaborator name or @username"
+                value={newCollab}
+                onChange={(e) => setNewCollab(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCollab())}
+                className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                type="button"
+                onClick={addCollab}
+                className="bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                <i className="fas fa-plus"></i>
+              </button>
+            </div>
+            
+            {collabs.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {collabs.map((collab, index) => (
+                  <div key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded-lg">
+                    <span className="text-sm">{collab}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeCollab(index)}
+                      className="text-red-500 hover:text-red-700 ml-2"
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Photos Section */}
         <div className="mt-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Photos</h2>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <label className="block text-sm font-medium">Head-shot (Avatar)</label>
@@ -626,48 +847,62 @@ export default function EditProfile() {
         {/* Social Media */}
         <div className="mt-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Social Media</h2>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Instagram URL</label>
-              <input 
-                name="instagram_handle" 
-                placeholder="https://instagram.com/username" 
-                value={profile.instagram_handle || ""} 
-                onChange={handleChange} 
-                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.instagram_handle ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {errors.instagram_handle && <p className="text-red-500 text-sm mt-1">{errors.instagram_handle}</p>}
+              <label className="block text-sm font-medium mb-1">Instagram Username</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                  @
+                </span>
+                <input 
+                  name="instagram_handle" 
+                  placeholder="username" 
+                  value={profile.instagram_handle || ""} 
+                  onChange={handleChange} 
+                  className="flex-1 p-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium mb-1">Twitter URL</label>
-              <input 
-                name="twitter_handle" 
-                placeholder="https://twitter.com/username" 
-                value={profile.twitter_handle || ""} 
-                onChange={handleChange} 
-                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.twitter_handle ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {errors.twitter_handle && <p className="text-red-500 text-sm mt-1">{errors.twitter_handle}</p>}
+              <label className="block text-sm font-medium mb-1">Twitter Username</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                  @
+                </span>
+                <input 
+                  name="twitter_handle" 
+                  placeholder="username" 
+                  value={profile.twitter_handle || ""} 
+                  onChange={handleChange} 
+                  className="flex-1 p-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium mb-1">Snapchat URL</label>
-              <input 
-                name="snapchat_handle" 
-                placeholder="https://snapchat.com/add/username" 
-                value={profile.snapchat_handle || ""} 
-                onChange={handleChange} 
-                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.snapchat_handle ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {errors.snapchat_handle && <p className="text-red-500 text-sm mt-1">{errors.snapchat_handle}</p>}
+              <label className="block text-sm font-medium mb-1">Snapchat Username</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                  @
+                </span>
+                <input 
+                  name="snapchat_handle" 
+                  placeholder="username" 
+                  value={profile.snapchat_handle || ""} 
+                  onChange={handleChange} 
+                  className="flex-1 p-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Privacy Settings */}
-        <div className="mt-8 p-6 bg-gray-50 rounded-lg">
+        <div className="mt-8 p-6 bg-gray-50 rounded-lg space-y-4">
+          <h2 className="text-xl font-semibold text-gray-800">Privacy Settings</h2>
+          
           <div className="flex items-start space-x-3">
             <input 
               type="checkbox" 
@@ -679,39 +914,24 @@ export default function EditProfile() {
               <label className="font-medium text-gray-800">Make Profile Anonymous</label>
               <p className="text-sm text-gray-600 mt-1">
                 Making your profile public significantly increases your chances of getting noticed and hired.
-                When your profile is public, producers and casting directors can discover you through search, 
-                filter by your characteristics, and even bookmark you for future roles.
-                Public profiles are more likely to receive invites to exclusive castings or custom content requests — sometimes without you even applying.
-                <br /><br />
-                In contrast, anonymous profiles are hidden from search results and only become visible after you apply for a gig.
-                This means fewer eyes on your profile and more effort needed to find work.
+                When your profile is public, producers and casting directors can discover you through search.
               </p>
             </div>
           </div>
-        </div>
-        
-        {/* NEW: Open to Messages Setting */}
-        <div className="mt-8 p-6 bg-gray-50 rounded-lg">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800">
-            Privacy Settings
-          </h3>
-          <div className="space-y-4">
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={profile.open_to_messages || false}
-                onChange={(e) =>
-                  setProfile({ ...profile, open_to_messages: e.target.checked })
-                }
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <div>
-                <span className="font-medium text-gray-800">Open to Messages</span>
-                <p className="text-sm text-gray-600">
-                  Allow anyone to send you messages (otherwise only people you've worked with or applied to can message you)
-                </p>
-              </div>
-            </label>
+
+          <div className="flex items-start space-x-3">
+            <input 
+              type="checkbox" 
+              checked={profile.open_to_messages || false} 
+              onChange={(e) => setProfile(prev => ({ ...prev, open_to_messages: e.target.checked }))} 
+              className="mt-1"
+            />
+            <div>
+              <label className="font-medium text-gray-800">Open to Messages</label>
+              <p className="text-sm text-gray-600 mt-1">
+                Allow other users to send you direct messages. This helps with networking and collaboration opportunities.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -761,41 +981,99 @@ export default function EditProfile() {
       {/* Cover Image Modal */}
       {coverModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+          <div className="bg-white rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Choose a Cover Image</h2>
+              <h2 className="text-xl font-bold">Choose a Cover</h2>
               <button 
-                onClick={() => setCoverModalOpen(false)}
+                onClick={() => {
+                  setCoverModalOpen(false);
+                  setUploadPreview(null);
+                }}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
               >
                 ×
               </button>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-              {DEFAULT_COVER_IMAGES.map((img) => (
-                <div key={img} className="relative group">
-                  <img
-                    src={`/images/covers/${img}`}
-                    alt={img}
-                    className="rounded-lg shadow cursor-pointer hover:opacity-80 transition-opacity w-full h-32 object-cover"
-                    onClick={() => handleCoverSelect(img)}
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
-                    <i className="fas fa-check text-white text-2xl opacity-0 group-hover:opacity-100 transition-opacity"></i>
+            
+            {/* Default Images */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Choose from Defaults</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {DEFAULT_COVER_IMAGES.map((img) => (
+                  <div key={img} className="relative group">
+                    <img
+                      src={`/images/covers/${img}`}
+                      alt={`Default cover ${img}`}
+                      className="rounded-lg shadow cursor-pointer hover:opacity-80 transition-opacity w-full h-24 object-cover border-2 hover:border-blue-400"
+                      onClick={() => handleCoverSelect(img)}
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                      <i className="fas fa-check text-white text-xl opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            <div className="border-t pt-4">
-              <p className="text-sm font-medium mb-2">Or upload your own:</p>
+            {/* Solid Colors */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Solid Colors</h3>
+              <div className="grid grid-cols-5 gap-3">
+                {COLOR_SCHEMES.solid.map((color) => (
+                  <div
+                    key={color}
+                    className="w-16 h-16 rounded-lg cursor-pointer border-2 border-gray-200 hover:border-blue-400 transition-colors shadow-sm"
+                    style={{ backgroundColor: color }}
+                    onClick={() => handleColorSchemeSelect(color, false)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Gradient Colors */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Gradient Colors</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {COLOR_SCHEMES.gradients.map((gradient, index) => (
+                  <div
+                    key={index}
+                    className="w-full h-16 rounded-lg cursor-pointer border-2 border-gray-200 hover:border-blue-400 transition-colors shadow-sm"
+                    style={{ background: gradient }}
+                    onClick={() => handleColorSchemeSelect(gradient, true)}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* Upload Custom */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-3">Upload Custom Image</h3>
+              
+              {/* Preview uploaded image */}
+              {uploadPreview && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium mb-2">Preview:</p>
+                  <img 
+                    src={uploadPreview} 
+                    alt="Upload preview" 
+                    className="w-full h-32 object-cover rounded-lg border-2 border-gray-300"
+                  />
+                </div>
+              )}
+              
               <input 
                 type="file" 
                 accept="image/*" 
                 onChange={(e) => handleImageUpload(e, "cover_image")} 
+                disabled={uploadingImages.cover_image}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              {uploadingImages.cover_image && (
+                <div className="mt-2 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-sm text-gray-600">Uploading...</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

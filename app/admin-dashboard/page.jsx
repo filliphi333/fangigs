@@ -273,19 +273,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchAdmin = async () => {
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
-        // Handle no user or auth session missing
-        if (!user || (userError && userError.name === 'AuthSessionMissingError')) {
-          router.push('/');
-          return;
-        }
-        
-        if (userError) {
-          console.error('Auth error:', userError);
-          router.push('/');
-          return;
-        }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return router.push('/');
         
         const { data, error } = await supabase
           .from('profiles')
@@ -293,18 +282,7 @@ export default function AdminDashboard() {
           .eq('id', user.id)
           .single();
 
-        if (error) {
-          console.error('Profile fetch error:', error);
-          router.push('/');
-          return;
-        }
-
-        if (data?.role !== 'admin') {
-          console.warn('Access denied: User is not an admin');
-          router.push('/');
-          return;
-        }
-        
+        if (error || data?.role !== 'admin') return router.push('/');
         setUser(user);
       } catch (err) {
         console.error('Auth error:', err);
@@ -329,47 +307,20 @@ export default function AdminDashboard() {
       };
 
       if (dataType === 'all') {
-        const [usersRes, jobsRes, articlesRes, travelRes] = await Promise.allSettled([
+        const [usersRes, jobsRes, articlesRes, travelRes] = await Promise.all([
           queries.users(),
           queries.jobs(),
           queries.articles(),
           queries.travel()
         ]);
 
-        // Handle each result individually
-        if (usersRes.status === 'fulfilled' && !usersRes.value.error) {
-          setUsers(usersRes.value.data || []);
-        } else {
-          console.error('Users fetch error:', usersRes.reason || usersRes.value?.error);
-          setUsers([]);
-        }
-
-        if (jobsRes.status === 'fulfilled' && !jobsRes.value.error) {
-          setJobs(jobsRes.value.data || []);
-        } else {
-          console.error('Jobs fetch error:', jobsRes.reason || jobsRes.value?.error);
-          setJobs([]);
-        }
-
-        if (articlesRes.status === 'fulfilled' && !articlesRes.value.error) {
-          setArticles(articlesRes.value.data || []);
-        } else {
-          console.error('Articles fetch error:', articlesRes.reason || articlesRes.value?.error);
-          setArticles([]);
-        }
-
-        if (travelRes.status === 'fulfilled' && !travelRes.value.error) {
-          setTravelPlans(travelRes.value.data || []);
-        } else {
-          console.error('Travel plans fetch error:', travelRes.reason || travelRes.value?.error);
-          setTravelPlans([]);
-        }
+        setUsers(usersRes.data || []);
+        setJobs(jobsRes.data || []);
+        setArticles(articlesRes.data || []);
+        setTravelPlans(travelRes.data || []);
       } else if (queries[dataType]) {
         const { data, error } = await queries[dataType]();
-        if (error) {
-          console.error(`${dataType} fetch error:`, error);
-          throw error;
-        }
+        if (error) throw error;
         
         switch (dataType) {
           case 'users': setUsers(data || []); break;
@@ -379,7 +330,6 @@ export default function AdminDashboard() {
         }
       }
     } catch (err) {
-      console.error(`Fetch error for ${dataType}:`, err);
       showMessage(`Failed to fetch ${dataType}: ${err.message}`, true);
     } finally {
       setLoadingStates(prev => ({ ...prev, [dataType]: false }));
@@ -464,49 +414,25 @@ export default function AdminDashboard() {
   const handleRoleChange = async (userId, newRole) => {
     const action = async () => {
       try {
-        setLoadingStates(prev => ({ ...prev, users: true }));
-        
-        // First check if current user has admin privileges
-        const { data: currentUser } = await supabase.auth.getUser();
-        if (!currentUser.user) {
-          throw new Error('Not authenticated');
-        }
-
-        const { data: adminProfile, error: adminError } = await supabase
+        const { error } = await supabase
           .from('profiles')
-          .select('role')
-          .eq('id', currentUser.user.id)
-          .single();
-
-        if (adminError || adminProfile?.role !== 'admin') {
-          throw new Error('Insufficient permissions. You must be an admin to change user roles.');
-        }
-
-        // Update the user role
-     await supabase
-  .from('profiles')
-  .update({ role: newRole })
-  .eq('id', userId)
-  .select('id, role');  // keep this if admin has SELECT-all policy
-          
+          .update({ role: newRole })
+          .eq('id', userId);
+        
         if (error) {
-          console.error('Role update error:', error);
-          throw error;
+          throw new Error(error.message);
         }
         
-        showMessage(`User role updated to ${newRole || 'user'} successfully!`);
+        showMessage(`User role updated successfully!`);
         await fetchData('users');
       } catch (err) {
-        console.error('Role change error:', err);
         showMessage('Failed to update user role: ' + err.message, true);
-      } finally {
-        setLoadingStates(prev => ({ ...prev, users: false }));
       }
     };
 
     showConfirmModal(
       'Change User Role',
-      `Are you sure you want to ${newRole ? `promote this user to ${newRole}` : 'remove admin privileges from this user'}?`,
+      `Are you sure you want to ${newRole ? `promote this user to ${newRole}` : 'remove admin privileges'}?`,
       action
     );
   };
@@ -950,39 +876,19 @@ export default function AdminDashboard() {
                               <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                                 {u.role !== 'admin' ? (
                                   <button 
-                                    className="bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed" 
+                                    className="bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200 transition-colors font-medium" 
                                     onClick={() => handleRoleChange(u.id, 'admin')}
-                                    disabled={loadingStates.users}
                                   >
-                                    {loadingStates.users ? (
-                                      <>
-                                        <i className="fas fa-spinner fa-spin mr-1"></i>
-                                        Processing...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <i className="fas fa-arrow-up mr-1"></i>
-                                        Promote
-                                      </>
-                                    )}
+                                    <i className="fas fa-arrow-up mr-1"></i>
+                                    Promote
                                   </button>
                                 ) : u.id !== user.id ? (
                                   <button 
-                                    className="bg-red-100 text-red-700 px-3 py-1 rounded-lg hover:bg-red-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed" 
-                                    onClick={() => handleRoleChange(u.id, 'user')}
-                                    disabled={loadingStates.users}
+                                    className="bg-red-100 text-red-700 px-3 py-1 rounded-lg hover:bg-red-200 transition-colors font-medium" 
+                                    onClick={() => handleRoleChange(u.id, null)}
                                   >
-                                    {loadingStates.users ? (
-                                      <>
-                                        <i className="fas fa-spinner fa-spin mr-1"></i>
-                                        Processing...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <i className="fas fa-arrow-down mr-1"></i>
-                                        Demote
-                                      </>
-                                    )}
+                                    <i className="fas fa-arrow-down mr-1"></i>
+                                    Demote
                                   </button>
                                 ) : (
                                   <span className="text-gray-400 text-xs">Current Admin</span>

@@ -38,6 +38,19 @@ export default function SignInModal({ isOpen, onClose, openJoinModal }) {
 
   const handleSignIn = async (e) => {
     e.preventDefault();
+    
+    // Client-side validation
+    if (!email || !password) {
+      setErrorMsg('Please fill in all fields');
+      return;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setErrorMsg('Please enter a valid email address');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg('');
 
@@ -113,6 +126,7 @@ export default function SignInModal({ isOpen, onClose, openJoinModal }) {
           type="button"
           onClick={() => handleSocialSignIn('google')}
           disabled={loading}
+          aria-label="Sign in with Google"
           className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
           <img src="/images/google.png" alt="Google" className="w-5 h-5 mr-3" />

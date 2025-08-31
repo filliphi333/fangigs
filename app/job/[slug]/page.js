@@ -123,9 +123,9 @@ export default function JobPage() {
         .select('id')
         .or(`and(participant1.eq.${sessionUser.id},participant2.eq.${job.creator_id}),and(participant1.eq.${job.creator_id},participant2.eq.${sessionUser.id})`)
         .eq('job_id', job.id)
-        .single();
+        .maybeSingle();
 
-      if (convError && convError.code !== 'PGRST116') {
+      if (convError) {
         throw convError;
       }
 
@@ -141,7 +141,9 @@ export default function JobPage() {
             participant1: sessionUser.id,
             participant2: job.creator_id,
             job_id: job.id,
-            status: 'active'
+            initiator_id: sessionUser.id,
+            status: 'active',
+            last_message_at: new Date().toISOString()
           })
           .select('id')
           .single();
@@ -153,8 +155,10 @@ export default function JobPage() {
         await supabase.from('messages').insert({
           conversation_id: conversationId,
           sender_id: sessionUser.id,
+          recipient_id: job.creator_id,
           content: `Question about "${job.title}"...`,
-          message_type: 'text'
+          message_type: 'text',
+          status: 'sent'
         });
       }
 

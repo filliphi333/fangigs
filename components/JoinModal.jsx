@@ -57,7 +57,8 @@ export default function JoinModal({ isOpen, onClose }) {
     if (/[^A-Za-z0-9]/.test(password)) score += 1;
 
     switch (score) {
-      case 0-1:
+      case 0:
+      case 1:
         text = 'Very Weak';
         color = 'text-red-500';
         break;
@@ -112,17 +113,19 @@ export default function JoinModal({ isOpen, onClose }) {
         break;
 
       case 'password':
-        if (!value) {
-          newErrors.password = 'Password is required';
-        } else if (value.length < 8) {
-          newErrors.password = 'Password must be at least 8 characters';
-        } else {
-          delete newErrors.password;
+        if (formData.password) { // Use formData.password to get the current value for validation
+          if (formData.password.length < 8) {
+            newErrors.password = 'Password must be at least 8 characters';
+          } else if (passwordStrength.score < 3) {
+            newErrors.password = 'Password is too weak. Please include uppercase, lowercase, numbers, and symbols';
+          } else {
+            delete newErrors.password;
+          }
         }
         // Check confirm password if it exists
-        if (formData.confirmPassword && value !== formData.confirmPassword) {
+        if (formData.confirmPassword && formData.password !== formData.confirmPassword) {
           newErrors.confirmPassword = 'Passwords do not match';
-        } else if (formData.confirmPassword) {
+        } else if (formData.confirmPassword && formData.password === formData.confirmPassword) {
           delete newErrors.confirmPassword;
         }
         break;
@@ -138,13 +141,15 @@ export default function JoinModal({ isOpen, onClose }) {
         break;
 
       case 'phone':
-        if (userType === 'creator' && value) {
+        if (userType === 'creator' && value) { // Check if value is present for creators
           const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/;
           if (!phoneRegex.test(value)) {
             newErrors.phone = 'Please enter a valid phone number';
           } else {
             delete newErrors.phone;
           }
+        } else if (userType === 'creator' && !value) { // Allow empty phone for creators
+          delete newErrors.phone;
         }
         break;
 
@@ -198,8 +203,12 @@ export default function JoinModal({ isOpen, onClose }) {
     }
 
     // Password validation
-    if (formData.password && formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    if (formData.password) {
+      if (formData.password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters';
+      } else if (passwordStrength.score < 3) {
+        newErrors.password = 'Password is too weak. Please include uppercase, lowercase, numbers, and symbols';
+      }
     }
 
     // Confirm password validation
@@ -439,7 +448,7 @@ export default function JoinModal({ isOpen, onClose }) {
                 onClick={() => setUserType('creator')}
                 disabled={isLoading}
               >
-                Content Creator
+                Creator/Producer
               </button>
             </div>
           </div>

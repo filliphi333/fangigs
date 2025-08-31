@@ -249,6 +249,7 @@ export default function ProfilePage() {
   const [retryCount, setRetryCount] = useState(0);
   const [isNotFound, setIsNotFound] = useState(false);
   const [viewerProfile, setViewerProfile] = useState(null);
+  const [upcomingTrips, setUpcomingTrips] = useState(0);
 
   // Set page title
   useEffect(() => {
@@ -338,6 +339,25 @@ export default function ProfilePage() {
         setJobs(data || []);
       } catch (err) {
         console.error('Error fetching jobs:', err);
+      }
+    })();
+
+    // Fetch upcoming trips for creators
+    (async () => {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data, error } = await supabase
+          .from('creator_travel_plans')
+          .select('id')
+          .eq('creator_name', profile.full_name)
+          .gte('start_date', today)
+          .order('start_date', { ascending: true });
+
+        if (!error) {
+          setUpcomingTrips(data?.length || 0);
+        }
+      } catch (err) {
+        console.error('Error fetching upcoming trips:', err);
       }
     })();
   }, [profile]);
@@ -656,7 +676,7 @@ export default function ProfilePage() {
                       <div className="text-xs text-gray-500 uppercase tracking-wide">Open Gigs Now</div>
                     </Link>
                     <div className="text-center cursor-pointer hover:opacity-80 transition-opacity">
-                      <div className="font-bold text-xl text-gray-900">0</div>
+                      <div className="font-bold text-xl text-gray-900">{upcomingTrips}</div>
                       <div className="text-xs text-gray-500 uppercase tracking-wide">Upcoming Trips</div>
                     </div>
                     <div className="text-center">
@@ -770,6 +790,26 @@ export default function ProfilePage() {
                   {profile.bio || "✨ This user hasn't written a bio yet."}
                 </p>
               </div>
+
+              {/* Collaborations Section */}
+              {profile.collabs && profile.collabs.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    <i className="fas fa-handshake text-blue-500 mr-2"></i>
+                    Collaborations
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.collabs.map((collab, index) => (
+                      <span
+                        key={index}
+                        className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"
+                      >
+                        {collab}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
