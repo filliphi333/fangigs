@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,7 +14,7 @@ const SitePopup = () => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-      
+
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -25,7 +24,7 @@ const SitePopup = () => {
         setUserProfile(profile);
       }
     };
-    
+
     getUser();
   }, []);
 
@@ -33,7 +32,7 @@ const SitePopup = () => {
     const fetchActivePopup = async () => {
       try {
         const now = new Date().toISOString();
-        
+
         // Get all active popups that should be shown now
         const { data: popups, error } = await supabase
           .from('admin_popups')
@@ -61,11 +60,11 @@ const SitePopup = () => {
         for (const popup of eligiblePopups) {
           const dismissKey = `popup_dismissed_${popup.id}`;
           const isDismissed = localStorage.getItem(dismissKey);
-          
+
           if (!isDismissed) {
             setPopup(popup);
             setIsVisible(true);
-            
+
             // Track impression
             trackPopupImpression(popup.id);
             break;
@@ -85,24 +84,24 @@ const SitePopup = () => {
     switch (target_audience) {
       case 'logged-out':
         return !user;
-      
+
       case 'new-users':
         if (!user || !userProfile) return false;
         const accountAge = new Date() - new Date(userProfile.created_at);
         const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
         return accountAge < thirtyDaysInMs;
-      
+
       case 'talents':
         return user && userProfile?.type === 'talent';
-      
+
       case 'creators':
         return user && userProfile?.type === 'creator';
-      
+
       case 'region-specific':
         // This would require additional logic to detect user region
         // For now, we'll show to all users if region is specified
         return true;
-      
+
       case 'all':
       default:
         return true;
@@ -141,10 +140,10 @@ const SitePopup = () => {
     if (popup) {
       // Store dismissal in localStorage
       localStorage.setItem(`popup_dismissed_${popup.id}`, 'true');
-      
+
       // Track dismiss event
       trackPopupDismiss(popup.id);
-      
+
       // Hide popup
       setIsVisible(false);
       setPopup(null);
@@ -189,8 +188,10 @@ const SitePopup = () => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div 
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full relative overflow-hidden animate-fade-in"
-        style={{
+        className={`rounded-2xl shadow-2xl max-w-md w-full relative overflow-hidden animate-fade-in ${
+          popup.popup_format === 'image' ? 'bg-transparent' : 'bg-white'
+        }`}
+        style={popup.popup_format === 'image' ? {} : {
           backgroundColor: popup.background_color || '#FFFFFF',
           color: popup.text_color || '#000000'
         }}
@@ -198,32 +199,59 @@ const SitePopup = () => {
         {/* Close button */}
         <button
           onClick={handleDismiss}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black bg-opacity-20 hover:bg-opacity-30 transition-all flex items-center justify-center"
-          style={{ color: popup.text_color || '#000000' }}
+          className={`absolute top-4 right-4 w-8 h-8 rounded-full transition-all flex items-center justify-center ${
+            popup.popup_format === 'image' 
+              ? 'bg-black bg-opacity-50 hover:bg-opacity-70 text-white' 
+              : 'bg-black bg-opacity-20 hover:bg-opacity-30'
+          }`}
+          style={popup.popup_format === 'image' ? { color: '#FFFFFF' } : { color: popup.text_color || '#000000' }}
         >
           <i className="fas fa-times"></i>
         </button>
 
         <div className="p-6">
-          {/* Icon and Title */}
-          <div className="flex items-center mb-4">
-            <div 
-              className="w-12 h-12 rounded-full flex items-center justify-center mr-4"
-              style={{
-                backgroundColor: popup.text_color || '#000000',
-                color: popup.background_color || '#FFFFFF'
-              }}
-            >
-              <i className={`${getPopupIcon(popup.type)} text-lg`}></i>
+          {/* Icon and Title - only show for text/mixed popups or when title exists */}
+          {(popup.popup_format !== 'image' || popup.title) && (
+            <div className="flex items-center mb-4">
+              <div 
+                className="w-12 h-12 rounded-full flex items-center justify-center mr-4"
+                style={{
+                  backgroundColor: popup.text_color || '#000000',
+                  color: popup.background_color || '#FFFFFF'
+                }}
+              >
+                <i className={`${getPopupIcon(popup.type)} text-lg`}></i>
+              </div>
+              <h3 className="text-xl font-bold">{popup.title}</h3>
             </div>
-            <h3 className="text-xl font-bold">{popup.title}</h3>
-          </div>
+          )}
 
           {/* Content */}
-          <div className="mb-6">
-            <p className="text-sm leading-relaxed whitespace-pre-line">
-              {popup.content}
-            </p>
+          <div className="flex-1">
+            {/* Show title only for text and mixed formats, or if title exists for image format */}
+            {(popup.popup_format !== 'image' || popup.title) && (
+              <h3 className="text-xl font-bold mb-3">{popup.title}</h3>
+            )}
+
+            {/* Image Display */}
+            {(popup.popup_format === 'image' || popup.popup_format === 'mixed') && popup.image_url && (
+              <div className="mb-4">
+                <img
+                  src={popup.image_url}
+                  alt={popup.image_alt || popup.title || 'Popup image'}
+                  className="w-full h-auto rounded-lg shadow-sm"
+                  style={{ maxHeight: '400px', objectFit: 'contain' }}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Text Content */}
+            {(popup.popup_format === 'text' || popup.popup_format === 'mixed') && popup.content && (
+              <p className="text-base leading-relaxed mb-6">{popup.content}</p>
+            )}
           </div>
 
           {/* Button */}
@@ -263,7 +291,7 @@ const SitePopup = () => {
         .animate-fade-in {
           animation: fadeIn 0.3s ease-out;
         }
-        
+
         @keyframes fadeIn {
           from {
             opacity: 0;

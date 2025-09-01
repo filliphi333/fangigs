@@ -26,8 +26,15 @@ const PopupManager = () => {
     button_text: '',
     button_url: '',
     background_color: '#3B82F6',
-    text_color: '#FFFFFF'
+    text_color: '#FFFFFF',
+    popup_format: 'text',
+    image_url: '',
+    image_alt: ''
   });
+
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const popupTypes = [
     { value: 'announcement', label: 'Announcement', icon: 'fas fa-bullhorn' },
@@ -96,10 +103,78 @@ const PopupManager = () => {
       button_text: '',
       button_url: '',
       background_color: '#3B82F6',
-      text_color: '#FFFFFF'
+      text_color: '#FFFFFF',
+      popup_format: 'text',
+      image_url: '',
+      image_alt: ''
     });
+    setImageFile(null);
+    setImagePreview('');
+    setUploadingImage(false);
     setEditingPopup(null);
     setShowForm(false);
+  };
+
+  const handleImageFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type (allow common image formats including GIF)
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        showMessage('Please select a valid image file (JPG, PNG, GIF, WebP)', true);
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showMessage('Image file size must be less than 5MB', true);
+        return;
+      }
+
+      setImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImageToStorage = async (file) => {
+    try {
+      setUploadingImage(true);
+      
+      // Create unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `popup-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('avatars') // Using existing avatars bucket
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw new Error(`Failed to upload image: ${error.message}`);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const clearImageSelection = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setFormData({...formData, image_url: ''});
   };
 
   const handleSubmit = async (e) => {
@@ -110,10 +185,22 @@ const PopupManager = () => {
         throw new Error('End date must be after start date');
       }
 
+      let finalFormData = { ...formData };
+
+      // Handle image upload if there's a new file
+      if (imageFile) {
+        try {
+          const uploadedImageUrl = await uploadImageToStorage(imageFile);
+          finalFormData.image_url = uploadedImageUrl;
+        } catch (uploadError) {
+          throw new Error(`Image upload failed: ${uploadError.message}`);
+        }
+      }
+
       if (editingPopup) {
         const { error } = await supabase
           .from('admin_popups')
-          .update(formData)
+          .update(finalFormData)
           .eq('id', editingPopup.id);
         
         if (error) throw error;
@@ -121,7 +208,7 @@ const PopupManager = () => {
       } else {
         const { error } = await supabase
           .from('admin_popups')
-          .insert([formData]);
+          .insert([finalFormData]);
         
         if (error) throw error;
         showMessage('Popup created successfully!');
@@ -149,8 +236,16 @@ const PopupManager = () => {
       button_text: popup.button_text || '',
       button_url: popup.button_url || '',
       background_color: popup.background_color || '#3B82F6',
-      text_color: popup.text_color || '#FFFFFF'
+      text_color: popup.text_color || '#FFFFFF',
+      popup_format: popup.popup_format || 'text',
+      image_url: popup.image_url || '',
+      image_alt: popup.image_alt || ''
     });
+    // Set existing image as preview if available
+    if (popup.image_url) {
+      setImagePreview(popup.image_url);
+    }
+    setImageFile(null);
     setShowForm(true);
   };
 
@@ -281,15 +376,131 @@ const PopupManager = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Content *</label>
-                  <textarea
-                    value={formData.content}
-                    onChange={(e) => setFormData({...formData, content: e.target.value})}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Popup Format</label>
+                  <select
+                    value={formData.popup_format}
+                    onChange={(e) => setFormData({...formData, popup_format: e.target.value})}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    rows="4"
-                    required
-                  />
+                  >
+                    <option value="text">Text Content</option>
+                    <option value="image">Image Only</option>
+                    <option value="mixed">Text + Image</option>
+                  </select>
                 </div>
+
+                {(formData.popup_format === 'text' || formData.popup_format === 'mixed') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Content {formData.popup_format === 'mixed' ? '(Optional with image)' : '*'}
+                    </label>
+                    <textarea
+                      value={formData.content}
+                      onChange={(e) => setFormData({...formData, content: e.target.value})}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      rows="4"
+                      required={formData.popup_format === 'text'}
+                    />
+                  </div>
+                )}
+
+                {(formData.popup_format === 'image' || formData.popup_format === 'mixed') && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Upload Image</label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-500 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*,.gif"
+                          onChange={handleImageFileChange}
+                          className="hidden"
+                          id="popup-image-upload"
+                          disabled={uploadingImage}
+                        />
+                        <label 
+                          htmlFor="popup-image-upload" 
+                          className={`cursor-pointer ${uploadingImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {uploadingImage ? (
+                            <div className="flex flex-col items-center">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                              <span className="text-sm text-gray-600">Uploading...</span>
+                            </div>
+                          ) : imageFile ? (
+                            <div className="space-y-3">
+                              <p className="text-sm text-green-600">
+                                <i className="fas fa-check mr-1"></i>
+                                {imageFile.name}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  clearImageSelection();
+                                }}
+                                className="text-sm text-red-600 hover:text-red-800 font-medium"
+                              >
+                                <i className="fas fa-times mr-1"></i>Remove
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <i className="fas fa-cloud-upload-alt text-4xl text-gray-400"></i>
+                              <div>
+                                <p className="text-sm text-gray-600 font-medium">Click to upload image</p>
+                                <p className="text-xs text-gray-500">Max 5MB • JPG, PNG, GIF, WebP</p>
+                              </div>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="text-center text-gray-500 text-sm">OR</div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Image URL</label>
+                      <input
+                        type="url"
+                        value={formData.image_url}
+                        onChange={(e) => setFormData({...formData, image_url: e.target.value})}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="https://example.com/image.jpg"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Image Alt Text</label>
+                      <input
+                        type="text"
+                        value={formData.image_alt}
+                        onChange={(e) => setFormData({...formData, image_alt: e.target.value})}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Describe the image for accessibility"
+                      />
+                    </div>
+
+                    {(imagePreview || formData.image_url) && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Image Preview</label>
+                        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                          <img
+                            src={imagePreview || formData.image_url}
+                            alt={formData.image_alt || 'Preview'}
+                            className="max-w-full h-auto max-h-48 mx-auto rounded"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'block';
+                            }}
+                          />
+                          <div className="text-red-500 text-center p-4 hidden">
+                            Failed to load image preview
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
