@@ -95,28 +95,24 @@ export default function ConversationPage() {
 
   const handleDeleteConversation = async (conversationId) => {
     try {
-      // First delete all messages in the conversation
-      const { error: messagesError } = await supabase
-        .from('messages')
-        .delete()
-        .eq('conversation_id', conversationId);
+      // Determine which hidden flag to update based on current user
+      const isParticipant1 = conversation.participant1 === user.id;
+      const updateField = isParticipant1 ? 'p1_hidden' : 'p2_hidden';
 
-      if (messagesError) throw messagesError;
-
-      // Then delete the conversation
-      const { error: conversationError } = await supabase
+      // Soft delete by hiding conversation for current user - use single condition for RLS
+      const { error } = await supabase
         .from('conversations')
-        .delete()
+        .update({ [updateField]: true })
         .eq('id', conversationId)
-        .or(`participant1.eq.${user.id},participant2.eq.${user.id}`);
+        .eq(isParticipant1 ? 'participant1' : 'participant2', user.id);
 
-      if (conversationError) throw conversationError;
+      if (error) throw error;
 
-      // Navigate back to messages after deletion
+      // Navigate back to messages after hiding
       router.push('/messages');
     } catch (err) {
-      console.error('Error deleting conversation:', err);
-      setError('Failed to delete conversation. Please try again.');
+      console.error('Error hiding conversation:', err);
+      setError('Failed to hide conversation. Please try again.');
     }
   };
 

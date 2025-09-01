@@ -17,6 +17,13 @@ export default function MessagesPanel({ currentUserId, userProfile }) {
   // Check if user can initiate conversations (only creators/producers)
   const canInitiateConversation = userProfile?.type === 'creator' || userProfile?.type === 'producer';
   
+  // Debug logging
+  useEffect(() => {
+    console.log('MessagesPanel - userProfile:', userProfile);
+    console.log('MessagesPanel - canInitiateConversation:', canInitiateConversation);
+    console.log('MessagesPanel - userProfile.type:', userProfile?.type);
+  }, [userProfile, canInitiateConversation]);
+  
   // Check if user can participate in existing conversations (includes those they initiated)
   const canParticipateInConversation = (conversation) => {
     return canInitiateConversation || conversation?.initiator_id === currentUserId;
@@ -30,10 +37,48 @@ export default function MessagesPanel({ currentUserId, userProfile }) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Track user activity
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const updateActivity = async () => {
+      try {
+        await fetch('/api/user-activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: currentUserId })
+        });
+      } catch (err) {
+        console.error('Error updating activity:', err);
+      }
+    };
+
+    // Update activity immediately
+    updateActivity();
+
+    // Update activity every 5 minutes while user is active
+    const activityInterval = setInterval(updateActivity, 5 * 60 * 1000);
+
+    // Update activity on user interaction
+    const handleUserActivity = () => updateActivity();
+    
+    document.addEventListener('mousedown', handleUserActivity);
+    document.addEventListener('keydown', handleUserActivity);
+    document.addEventListener('scroll', handleUserActivity);
+
+    return () => {
+      clearInterval(activityInterval);
+      document.removeEventListener('mousedown', handleUserActivity);
+      document.removeEventListener('keydown', handleUserActivity);
+      document.removeEventListener('scroll', handleUserActivity);
+    };
+  }, [currentUserId]);
+
   // Fetch conversations with real-time updates
   const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
+      // Build query to get conversations for current user, excluding hidden ones
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -48,7 +93,15 @@ export default function MessagesPanel({ currentUserId, userProfile }) {
         .order('last_message_at', { ascending: false });
 
       if (error) throw error;
-      setConversations(data || []);
+
+      // Filter out hidden conversations on client side to avoid RLS issues
+      const filteredData = data?.filter(conv => {
+        const isParticipant1 = conv.participant1 === currentUserId;
+        const hiddenField = isParticipant1 ? 'p1_hidden' : 'p2_hidden';
+        return !conv[hiddenField];
+      });
+
+      setConversations(filteredData || []);
     } catch (err) {
       console.error('Error fetching conversations:', err);
       setError(err.message);
@@ -175,25 +228,27 @@ export default function MessagesPanel({ currentUserId, userProfile }) {
     }
   };
 
-  // Delete conversation
+  // Delete conversation (soft delete - hide for current user only)
   const deleteConversation = async (conversationId) => {
     try {
-      // First delete all messages in the conversation
-      const { error: messagesError } = await supabase
-        .from('messages')
-        .delete()
-        .eq('conversation_id', conversationId);
+      // Find the conversation to determine which participant is the current user
+      const conversation = conversations.find(conv => conv.id === conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
 
-      if (messagesError) throw messagesError;
+      // Determine which hidden flag to update based on current user
+      const isParticipant1 = conversation.participant1 === currentUserId;
+      const updateField = isParticipant1 ? 'p1_hidden' : 'p2_hidden';
 
-      // Then delete the conversation
-      const { error: conversationError } = await supabase
+      // Soft delete by hiding conversation for current user - use single condition for RLS
+      const { error } = await supabase
         .from('conversations')
-        .delete()
+        .update({ [updateField]: true })
         .eq('id', conversationId)
-        .or(`participant1.eq.${currentUserId},participant2.eq.${currentUserId}`);
+        .eq(isParticipant1 ? 'participant1' : 'participant2', currentUserId);
 
-      if (conversationError) throw conversationError;
+      if (error) throw error;
 
       // Clear selected conversation if it was the deleted one
       if (selectedConversation?.id === conversationId) {
@@ -203,8 +258,8 @@ export default function MessagesPanel({ currentUserId, userProfile }) {
       // Refresh conversations list
       fetchConversations();
     } catch (err) {
-      console.error('Error deleting conversation:', err);
-      setError('Failed to delete conversation. Please try again.');
+      console.error('Error hiding conversation:', err);
+      setError('Failed to hide conversation. Please try again.');
     }
   };
 

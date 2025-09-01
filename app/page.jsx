@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,6 +9,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '../lib/supabase';
 import CreatorMapSection from "../components/CreatorMapSection.jsx";
+import SitePopup from '../components/SitePopup';
 
 export default function Home() {
   const [isJoinOpen, setJoinOpen] = useState(false);
@@ -23,7 +23,7 @@ export default function Home() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch trending jobs
         const today = new Date().toISOString().split('T')[0];
         const { data: jobsData, error: jobsError } = await supabase
@@ -123,7 +123,7 @@ export default function Home() {
             <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto">
               Connect with verified professionals, find your next gig, or discover amazing talent on the industry's most trusted platform
             </p>
-            
+
             {/* Platform Stats */}
             <div className="grid grid-cols-3 gap-4 md:gap-8 max-w-2xl mx-auto mb-12">
               <div className="text-center">
@@ -321,7 +321,7 @@ export default function Home() {
                         </span>
                       )}
                     </div>
-                    
+
                     <div className="space-y-2 mb-4">
                       {job.location && (
                         <div className="flex items-center text-pink-100">
@@ -342,7 +342,7 @@ export default function Home() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex items-center text-yellow-300 font-semibold text-sm">
                       View Details
                       <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
@@ -452,6 +452,7 @@ export default function Home() {
       {/* Modals */}
       <JoinModal isOpen={isJoinOpen} onClose={() => setJoinOpen(false)} />
       <SignInModal isOpen={isSignInOpen} onClose={() => setSignInOpen(false)} />
+      <SitePopup />
     </main>
   );
 }

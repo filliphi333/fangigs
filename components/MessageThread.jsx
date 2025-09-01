@@ -244,7 +244,7 @@ export default function MessageThread({ conversation, currentUserId, userProfile
     }
   };
 
-  // Handle delete conversation
+  // Handle delete conversation (soft delete)
   const handleDeleteConversation = async () => {
     if (onDeleteConversation) {
       await onDeleteConversation(conversation.id);
@@ -347,12 +347,12 @@ export default function MessageThread({ conversation, currentUserId, userProfile
             {/* Delete conversation button */}
             <button
               onClick={() => {
-                if (confirm(`Delete this conversation with ${partner?.full_name}? This action cannot be undone.`)) {
+                if (confirm(`Hide this conversation with ${partner?.full_name}? You can still be messaged by this user.`)) {
                   handleDeleteConversation();
                 }
               }}
               className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
-              title="Delete conversation"
+              title="Hide conversation"
             >
               <i className="fas fa-trash"></i>
             </button>

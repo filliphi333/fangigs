@@ -236,7 +236,7 @@ export default function ConversationList({ conversations, currentUserId, onSelec
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm(`Delete conversation with ${partner?.full_name}? This action cannot be undone.`)) {
+                    if (confirm(`Hide conversation with ${partner?.full_name}? You can still be messaged by this user.`)) {
                       handleDeleteConversation(conv.id);
                     }
                   }}
