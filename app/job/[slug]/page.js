@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from "react";
@@ -19,15 +18,34 @@ export default function JobPage() {
   const [userType, setUserType] = useState("");
   const [alreadyApplied, setAlreadyApplied] = useState(false);
 
+  const [signInModalOpen, setSignInModalOpen] = useState(false);
+  const [messaging, setMessaging] = useState(false);
+  const [applying, setApplying] = useState(false);
+
+  const user = sessionUser;
+  const canApply = userType === "talent" && !alreadyApplied;
+  const hasApplied = userType === "talent" && alreadyApplied;
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (!error && user) {
+        setSessionUser(user);
+      }
+      // Allow viewing job details without being signed in
+    };
+    fetchUser();
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // 1️⃣ Auth
-        const { data: { user }} = await supabase.auth.getUser();
-        setSessionUser(user || null);
+        // 1️⃣ Auth - Already handled above to allow viewing without login
+        // const { data: { user }} = await supabase.auth.getUser();
+        // setSessionUser(user || null);
 
         // 2️⃣ Job by slug
         const { data: jobData, error: jobErr } = await supabase
@@ -48,18 +66,18 @@ export default function JobPage() {
             .select("vanity_username, full_name, headshot_image")
             .eq("id", jobData.creator_id)
             .single();
-          
+
           if (!producerErr && producerData) {
             setProducer(producerData);
           }
         }
 
         // 4️⃣ Current user's type & existing application
-        if (user) {
+        if (sessionUser) {
           const { data: myProf } = await supabase
             .from("profiles")
             .select("type")
-            .eq("id", user.id)
+            .eq("id", sessionUser.id)
             .single();
 
           if (myProf?.type) setUserType(myProf.type);
@@ -68,7 +86,7 @@ export default function JobPage() {
             .from("job_applications")
             .select("id")
             .eq("job_id", jobData.id)
-            .eq("talent_id", user.id)
+            .eq("talent_id", sessionUser.id)
             .maybeSingle();
 
           if (appRow) setAlreadyApplied(true);
@@ -80,19 +98,18 @@ export default function JobPage() {
         setLoading(false);
       }
     })();
-  }, [slug]);
+  }, [slug, sessionUser]); // Added sessionUser to dependency array
 
   const handleApply = async () => {
     if (!sessionUser) {
-      alert("You must be logged in to apply.");
-      router.push("/sign-in");
+      setSignInModalOpen(true);
       return;
     }
     if (alreadyApplied) {
       alert("You have already applied to this gig.");
       return;
     }
-
+    setApplying(true);
     try {
       const { error } = await supabase.from("job_applications").insert({
         job_id: job.id,
@@ -106,13 +123,14 @@ export default function JobPage() {
     } catch (error) {
       console.error("Error applying:", error);
       alert("Error sending application. Please try again.");
+    } finally {
+      setApplying(false);
     }
   };
 
   const handleAskQuestion = async () => {
     if (!sessionUser) {
-      alert("You must be logged in to ask questions.");
-      router.push("/sign-in");
+      setSignInModalOpen(true);
       return;
     }
 
@@ -141,9 +159,7 @@ export default function JobPage() {
             participant1: sessionUser.id,
             participant2: job.creator_id,
             job_id: job.id,
-            initiator_id: sessionUser.id,
-            status: 'active',
-            last_message_at: new Date().toISOString()
+            status: 'active'
           })
           .select('id')
           .single();
@@ -155,10 +171,8 @@ export default function JobPage() {
         await supabase.from('messages').insert({
           conversation_id: conversationId,
           sender_id: sessionUser.id,
-          recipient_id: job.creator_id,
           content: `Question about "${job.title}"...`,
-          message_type: 'text',
-          status: 'sent'
+          message_type: 'text'
         });
       }
 
@@ -168,6 +182,51 @@ export default function JobPage() {
       alert('Error starting conversation. Please try again.');
     }
   };
+
+  // Placeholder for handleMessage if it's needed elsewhere
+  const handleMessage = async () => {
+    if (!sessionUser) {
+      setSignInModalOpen(true);
+      return;
+    }
+    setMessaging(true);
+    try {
+      // Logic to find or create conversation and navigate to messages
+      const { data: existingConv, error: convError } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`and(participant1.eq.${sessionUser.id},participant2.eq.${job.creator_id}),and(participant1.eq.${job.creator_id},participant2.eq.${sessionUser.id})`)
+        .eq('job_id', job.id)
+        .maybeSingle();
+
+      if (convError) throw convError;
+
+      let conversationId;
+      if (existingConv) {
+        conversationId = existingConv.id;
+      } else {
+        const { data: newConv, error: createError } = await supabase
+          .from('conversations')
+          .insert({
+            participant1: sessionUser.id,
+            participant2: job.creator_id,
+            job_id: job.id,
+            status: 'active'
+          })
+          .select('id')
+          .single();
+        if (createError) throw createError;
+        conversationId = newConv.id;
+      }
+      router.push(`/messages/${conversationId}`);
+    } catch (error) {
+      console.error('Error messaging:', error);
+      alert('Error sending message. Please try again.');
+    } finally {
+      setMessaging(false);
+    }
+  };
+
 
   const getUrgencyStyle = (urgency) => {
     switch (urgency) {
@@ -251,8 +310,8 @@ export default function JobPage() {
                   {producer?.full_name || 'Anonymous Producer'}
                 </h2>
                 {producer?.vanity_username && (
-                  <Link 
-                    href={`/profile/${producer.vanity_username}`} 
+                  <Link
+                    href={`/profile/${producer.vanity_username}`}
                     className="text-blue-600 hover:text-blue-800 transition-colors"
                   >
                     @{producer.vanity_username}
@@ -341,27 +400,62 @@ export default function JobPage() {
           <div className="flex flex-col sm:flex-row gap-4">
             {userType === "talent" && (
               <>
-                {alreadyApplied ? (
-                  <div className="flex items-center gap-2 bg-green-100 text-green-800 px-6 py-3 rounded-lg font-semibold">
-                    <i className="fas fa-check-circle"></i>
-                    Application Submitted
-                  </div>
-                ) : (
+                {!user ? (
+                  <button
+                    onClick={() => setSignInModalOpen(true)}
+                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg"
+                  >
+                    Sign In to Apply
+                  </button>
+                ) : canApply ? (
                   <button
                     onClick={handleApply}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg"
+                    disabled={applying}
+                    className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-green-600 hover:to-green-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <i className="fas fa-paper-plane mr-2"></i>
-                    Apply to This Gig
+                    {applying ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Applying...
+                      </span>
+                    ) : (
+                      'Apply for this Job'
+                    )}
                   </button>
+                ) : (
+                  hasApplied ? (
+                    <div className="w-full bg-blue-100 text-blue-800 py-4 px-6 rounded-xl font-bold text-lg text-center">
+                      ✓ Application Submitted
+                    </div>
+                  ) : (
+                    <div className="w-full bg-gray-100 text-gray-600 py-4 px-6 rounded-xl font-bold text-lg text-center">
+                      Applications closed or you cannot apply
+                    </div>
+                  )
                 )}
-                
+
                 <button
-                  onClick={handleAskQuestion}
-                  className="border-2 border-blue-600 text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-600 hover:text-white transition-all"
+                  onClick={user ? handleMessage : () => setSignInModalOpen(true)}
+                  disabled={messaging}
+                  className="flex-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-purple-600 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <i className="fas fa-question-circle mr-2"></i>
-                  Ask a Question
+                  {messaging ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Messaging...
+                    </span>
+                  ) : (
+                    <>
+                      <i className="fas fa-envelope mr-2"></i>
+                      {user ? 'Message' : 'Sign In to Message'}
+                    </>
+                  )}
                 </button>
               </>
             )}
@@ -388,6 +482,30 @@ export default function JobPage() {
           </div>
         </div>
       </main>
+
+      {/* Sign In Modal (conditionally rendered) */}
+      {signInModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-8 max-w-sm w-full text-center shadow-xl">
+            <h2 className="text-2xl font-bold mb-4">Welcome!</h2>
+            <p className="text-gray-700 mb-6">Please sign in to continue.</p>
+            <Link href="/sign-in">
+              <button
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all w-full mb-3"
+                onClick={() => setSignInModalOpen(false)}
+              >
+                Sign In
+              </button>
+            </Link>
+            <button
+              className="border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all w-full"
+              onClick={() => setSignInModalOpen(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

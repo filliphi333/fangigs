@@ -203,6 +203,24 @@ export default function PostJob() {
     setSignInModalOpen(true);
   };
 
+  const handleModalClose = () => {
+    // If user closes modal without signing in, redirect to home
+    if (!user) {
+      router.push('/');
+    } else {
+      setSignInModalOpen(false);
+    }
+  };
+
+  const handleJoinModalClose = () => {
+    // If user closes join modal without signing in, redirect to home
+    if (!user) {
+      router.push('/');
+    } else {
+      setJoinModalOpen(false);
+    }
+  };
+
   return (
     <>
       {showPreview && (
@@ -510,13 +528,13 @@ export default function PostJob() {
 
       <SignInModal
         isOpen={isSignInModalOpen}
-        onClose={() => setSignInModalOpen(false)}
+        onClose={handleModalClose}
         openJoinModal={openJoinModal}
       />
 
       <JoinModal
         isOpen={isJoinModalOpen}
-        onClose={() => setJoinModalOpen(false)}
+        onClose={handleJoinModalClose}
       />
     </>
   );

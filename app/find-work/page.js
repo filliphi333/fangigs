@@ -34,11 +34,14 @@ export default function FindWork() {
   ];
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+    const fetchUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (!error && user) {
+        setUser(user);
+      }
+      // Don't show sign-in modal automatically - let users browse jobs
     };
-    getUser();
+    fetchUser();
   }, []);
 
   useEffect(() => {
@@ -216,6 +219,17 @@ export default function FindWork() {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading jobs...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Hero Section */}
@@ -392,8 +406,8 @@ export default function FindWork() {
                   <button
                     onClick={() => saveJob(job.id)}
                     className={`p-2 rounded-full transition-colors ${
-                      savedJobs.has(job.id) 
-                        ? 'bg-red-100 text-red-600 hover:bg-red-200' 
+                      savedJobs.has(job.id)
+                        ? 'bg-red-100 text-red-600 hover:bg-red-200'
                         : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-red-500'
                     }`}
                   >
