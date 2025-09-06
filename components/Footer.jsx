@@ -1,11 +1,81 @@
+
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import { supabase } from "../lib/supabase";
 
 export default function Footer() {
   const [email, setEmail] = useState("");
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  
+  // Contact form states
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
+  });
+  const [isContactSubmitting, setIsContactSubmitting] = useState(false);
+  const [contactStatus, setContactStatus] = useState(null);
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    
+    const { name, email, subject, message } = contactForm;
+    
+    if (!name || !email || !subject || !message) {
+      setContactStatus({ type: "error", message: "Please fill in all fields" });
+      return;
+    }
+
+    if (!email.includes("@")) {
+      setContactStatus({ type: "error", message: "Please enter a valid email address" });
+      return;
+    }
+
+    setIsContactSubmitting(true);
+    
+    try {
+      // Insert contact submission into database
+      const { error } = await supabase
+        .from('contact_submissions')
+        .insert({
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          subject: subject.trim(),
+          message: message.trim(),
+          ip_address: null, // Could be populated with actual IP if needed
+          user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : null
+        });
+
+      if (error) {
+        throw error;
+      }
+      
+      setContactStatus({ 
+        type: "success", 
+        message: "Thank you for your message! We'll get back to you within 24 hours." 
+      });
+      
+      // Reset form
+      setContactForm({
+        name: "",
+        email: "",
+        subject: "",
+        message: ""
+      });
+    } catch (error) {
+      console.error('Contact form submission error:', error);
+      setContactStatus({ 
+        type: "error", 
+        message: "Something went wrong. Please try again or email us directly at contact@fan-gigs.com" 
+      });
+    } finally {
+      setIsContactSubmitting(false);
+      setTimeout(() => setContactStatus(null), 7000);
+    }
+  };
 
   const handleNewsletterSubmit = async (e) => {
     e.preventDefault();
@@ -89,7 +159,7 @@ export default function Footer() {
 
       <div className="relative max-w-7xl mx-auto px-6 py-16">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-12 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 mb-12">
           
           {/* Brand Section */}
           <div className="lg:col-span-1">
@@ -159,6 +229,101 @@ export default function Footer() {
                 </li>
               ))}
             </ul>
+          </div>
+
+          {/* Contact Form */}
+          <div className="lg:col-span-1">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <i className="fas fa-envelope text-gray-400"></i>
+              Contact Us
+            </h3>
+            <p className="text-gray-400 mb-6">
+              Have questions or need support? Send us a message and we'll get back to you.
+            </p>
+            
+            <form onSubmit={handleContactSubmit} className="space-y-4">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={contactForm.name}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Your name" 
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-300"
+                  disabled={isContactSubmitting}
+                  required
+                />
+                <i className="fas fa-user absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+              </div>
+              
+              <div className="relative">
+                <input 
+                  type="email" 
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="Your email" 
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-300"
+                  disabled={isContactSubmitting}
+                  required
+                />
+                <i className="fas fa-envelope absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+              </div>
+
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={contactForm.subject}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, subject: e.target.value }))}
+                  placeholder="Subject" 
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-300"
+                  disabled={isContactSubmitting}
+                  required
+                />
+                <i className="fas fa-tag absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+              </div>
+
+              <div className="relative">
+                <textarea 
+                  value={contactForm.message}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, message: e.target.value }))}
+                  placeholder="Your message" 
+                  rows="3"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-300 resize-none"
+                  disabled={isContactSubmitting}
+                  required
+                />
+                <i className="fas fa-comment absolute right-3 top-4 text-gray-500"></i>
+              </div>
+              
+              <button 
+                type="submit" 
+                disabled={isContactSubmitting || !contactForm.name || !contactForm.email || !contactForm.subject || !contactForm.message}
+                className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+              >
+                {isContactSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-paper-plane"></i>
+                    Send Message
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Contact Status */}
+            {contactStatus && (
+              <div className={`mt-4 p-3 rounded-lg text-sm ${
+                contactStatus.type === 'success' 
+                  ? 'bg-green-900/50 border border-green-700 text-green-300' 
+                  : 'bg-red-900/50 border border-red-700 text-red-300'
+              }`}>
+                <i className={`${contactStatus.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle'} mr-2`}></i>
+                {contactStatus.message}
+              </div>
+            )}
           </div>
 
           {/* Newsletter */}

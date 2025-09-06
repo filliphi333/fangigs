@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function SignInModal({ isOpen, onClose, openJoinModal }) {
@@ -181,7 +182,13 @@ export default function SignInModal({ isOpen, onClose, openJoinModal }) {
           className="w-full p-3 border-2 border-[#E8967B] bg-white rounded-md focus:outline-none"
         />
         <div className="text-sm">
-          <a href="/forgot-password" className="text-blue-900 font-bold hover:underline">Forgot Password?</a>
+          <Link 
+            href="/forgot-password" 
+            className="text-blue-900 font-bold hover:underline"
+            onClick={onClose}
+          >
+            Forgot Password?
+          </Link>
         </div>
         {errorMsg && <p className="text-red-600 text-sm">{errorMsg}</p>}
         <button

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
+import DeactivateAccount from "../../components/DeactivateAccount";
 
 const DEFAULT_COVER_IMAGES = [
   "default1.jpg","default2.jpg","default3.jpg","default4.jpg","default5.jpg",
@@ -960,21 +961,7 @@ export default function EditProfile() {
             Change Password
           </button>
 
-          <button
-            type="button"
-            onClick={async () => {
-              const confirm = window.confirm("Are you sure you want to deactivate your account? This action cannot be undone.");
-              if (!confirm) return;
-
-              const { data: { user } } = await supabase.auth.getUser();
-              await supabase.from("profiles").delete().eq("id", user.id);
-              await supabase.auth.signOut();
-              router.push("/");
-            }}
-            className="w-full sm:w-auto bg-red-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Deactivate Account
-          </button>
+          <DeactivateAccount />
         </div>
       </form>
 

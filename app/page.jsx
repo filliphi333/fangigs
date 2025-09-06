@@ -17,8 +17,6 @@ export default function Home() {
   const router = useRouter();
   const [trendingJobs, setTrendingJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ jobs: 0, talents: 0, creators: 0 });
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -37,19 +35,6 @@ export default function Home() {
 
         if (jobsError) throw jobsError;
         setTrendingJobs(jobsData || []);
-
-        // Fetch platform stats
-        const [jobsCount, talentsCount, creatorsCount] = await Promise.all([
-          supabase.from('job_postings').select('*', { count: 'exact', head: true }).eq('is_active', true),
-          supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('type', 'talent').eq('is_public', true),
-          supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('type', 'creator').eq('is_public', true)
-        ]);
-
-        setStats({
-          jobs: jobsCount.count || 0,
-          talents: talentsCount.count || 0,
-          creators: creatorsCount.count || 0
-        });
 
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -112,67 +97,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-white">
-      {/* Enhanced Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 text-white overflow-hidden">
-        <div className="absolute inset-0 bg-black/20"></div>
-        <div className="relative max-w-7xl mx-auto px-4 py-20 md:py-32">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-              The Future of <span className="text-yellow-300">Adult Content</span> Collaboration
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto">
-              Connect with verified professionals, find your next gig, or discover amazing talent on the industry's most trusted platform
-            </p>
-
-            {/* Platform Stats */}
-            <div className="grid grid-cols-3 gap-4 md:gap-8 max-w-2xl mx-auto mb-12">
-              <div className="text-center">
-                <div className="text-2xl md:text-4xl font-bold text-yellow-300">
-                  {loading ? '...' : `${stats.jobs}+`}
-                </div>
-                <div className="text-sm md:text-base text-blue-200">Active Jobs</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl md:text-4xl font-bold text-yellow-300">
-                  {loading ? '...' : `${stats.talents}+`}
-                </div>
-                <div className="text-sm md:text-base text-blue-200">Verified Talents</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl md:text-4xl font-bold text-yellow-300">
-                  {loading ? '...' : `${stats.creators}+`}
-                </div>
-                <div className="text-sm md:text-base text-blue-200">Content Creators</div>
-              </div>
-            </div>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                href="/find-work"
-                className="bg-white text-purple-600 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-gray-100 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
-              >
-                <i className="fas fa-search mr-2"></i>
-                Find Work
-              </Link>
-              <Link
-                href="/find-talent"
-                className="border-2 border-white text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-white hover:text-purple-600 transition-all"
-              >
-                <i className="fas fa-users mr-2"></i>
-                Find Talent
-              </Link>
-              <Link
-                href="/post-job"
-                className="bg-yellow-400 text-purple-900 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-yellow-300 transition-all shadow-xl"
-              >
-                <i className="fas fa-plus-circle mr-2"></i>
-                Post a Job
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Hero Section */}
+      <HeroSection setJoinOpen={setJoinOpen} setSignInOpen={setSignInOpen} />
 
       {/* Enhanced Role Cards Section */}
       <section className="py-16 px-4 bg-gradient-to-br from-gray-50 to-blue-50 relative">

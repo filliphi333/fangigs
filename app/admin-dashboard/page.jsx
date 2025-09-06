@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import PopupManager from '../../components/AdminPopupManager';
+import AdminContactManager from '../../components/AdminContactManager';
 
 // Loading Components
 const LoadingSpinner = () => (
@@ -687,7 +688,8 @@ export default function AdminDashboard() {
               { key: 'overview', label: 'Overview', icon: 'fas fa-chart-pie', color: 'from-blue-500 to-blue-600' },
               { key: 'users', label: 'Users', icon: 'fas fa-users', color: 'from-green-500 to-green-600' },
               { key: 'jobs', label: 'Jobs', icon: 'fas fa-briefcase', color: 'from-yellow-500 to-yellow-600' },
-              { key: 'popups', label: 'Popups', icon: 'fas fa-popup', color: 'from-indigo-500 to-indigo-600' },
+              { key: 'popups', label: 'Popups', icon: 'fas fa-bell', color: 'from-indigo-500 to-indigo-600' },
+              { key: 'messages', label: 'Messages', icon: 'fas fa-envelope', color: 'from-orange-500 to-orange-600' },
               { key: 'news', label: 'News', icon: 'fas fa-newspaper', color: 'from-purple-500 to-purple-600' },
               { key: 'travel', label: 'Travel', icon: 'fas fa-map-marker-alt', color: 'from-pink-500 to-pink-600' }
             ].map(tab => (
@@ -1129,6 +1131,11 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-2xl shadow-lg p-8">
             <PopupManager />
           </div>
+        )}
+
+        {/* Contact Messages Section */}
+        {section === 'messages' && (
+          <AdminContactManager />
         )}
 
         {/* News Section */}

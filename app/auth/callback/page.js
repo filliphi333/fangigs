@@ -1,95 +1,75 @@
-
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "../../../lib/supabase";
 
 export default function AuthCallback() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      try {
+      const type = searchParams.get('type');
+
+      // Handle password recovery
+      if (type === 'recovery') {
+        setIsPasswordReset(true);
         const { data, error } = await supabase.auth.getSession();
-        
+
         if (error) {
-          console.error('Auth callback error:', error);
-          router.push('/?error=auth_failed');
+          console.error("Recovery error:", error);
+          router.push("/forgot-password?error=recovery_failed");
           return;
         }
 
         if (data.session) {
-          const user = data.session.user;
-          
-          // Check if profile exists
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-
-          if (profileError && profileError.code !== 'PGRST116') {
-            console.error('Profile check error:', profileError);
-          }
-
-          // If no profile exists, create one
-          if (!profileData) {
-            const newProfile = {
-              id: user.id,
-              email: user.email,
-              full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New User',
-              type: 'talent', // Default type, user can change later
-              created_at: new Date().toISOString(),
-              is_public: false, // Start with private profile
-              phone: null,
-              company: null,
-              bio: null,
-              age: null,
-            };
-
-            const { error: createError } = await supabase
-              .from('profiles')
-              .insert([newProfile]);
-
-            if (createError) {
-              console.error('Profile creation error:', createError);
-            }
-          }
-
-          // Check redirect intent
-          const redirectTo = localStorage.getItem('redirect_after_login');
-          if (redirectTo) {
-            localStorage.removeItem('redirect_after_login');
-            router.push(redirectTo);
-            return;
-          }
-
-          // Default redirect based on profile type
-          if (profileData?.type === 'creator') {
-            router.push('/producer-dashboard');
-          } else if (profileData?.type === 'talent') {
-            router.push('/talent-dashboard');
-          } else {
-            router.push('/edit-profile');
-          }
-        } else {
-          router.push('/');
+          // Redirect to change password page
+          router.push("/change-password?recovery=true");
+          return;
         }
-      } catch (err) {
-        console.error('Unexpected auth callback error:', err);
-        router.push('/?error=auth_failed');
+      }
+
+      // Handle regular auth callback
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error("Auth error:", error);
+        router.push("/?error=auth_failed");
+        return;
+      }
+
+      if (data.session) {
+        // User is authenticated, redirect to dashboard
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("type")
+          .eq("id", data.session.user.id)
+          .single();
+
+        if (profile?.type === "creator") {
+          router.push("/producer-dashboard");
+        } else {
+          router.push("/talent-dashboard");
+        }
+      } else {
+        router.push("/");
       }
     };
 
     handleAuthCallback();
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E8967B] mx-auto mb-4"></div>
-        <p className="text-gray-600">Completing sign in...</p>
+        <div className="w-16 h-16 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i className={`fas ${isPasswordReset ? 'fa-key' : 'fa-user-check'} text-2xl text-purple-600`}></i>
+        </div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+        <p className="text-gray-600 font-medium">
+          {isPasswordReset ? "Setting up password reset..." : "Authenticating..."}
+        </p>
       </div>
     </div>
   );
