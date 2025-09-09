@@ -27,4 +27,4 @@ Thumbs.db
 .vscode/
 
 # Ignore font-awesome brands
-**/fa-brands*
+**/fa-brands*.env.local 
