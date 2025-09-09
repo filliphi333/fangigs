@@ -13,6 +13,7 @@ export default function TalentDashboard() {
   const [isSignInModalOpen, setSignInModalOpen] = useState(false);
   const [profile, setProfile] = useState({});
   const [applications, setApplications] = useState([]);
+  const [savedJobs, setSavedJobs] = useState([]);
   const [activeTab, setActiveTab] = useState("applications");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -66,6 +67,7 @@ export default function TalentDashboard() {
         setProfile(data);
         calculateCompletion(data);
         fetchApplications(user.id);
+        fetchSavedJobs(user.id);
       } else {
         console.error("Error loading profile:", error);
       }
@@ -91,6 +93,32 @@ export default function TalentDashboard() {
 
       if (!error) setApplications(data);
       else console.error("Error fetching applications:", error);
+    };
+
+    const fetchSavedJobs = async (userId) => {
+      const { data, error } = await supabase
+        .from("saved_jobs")
+        .select(`
+          id,
+          created_at,
+          job_postings:job_id (
+            id,
+            slug,
+            title,
+            location,
+            pay,
+            created_at,
+            profiles:creator_id (
+              full_name,
+              vanity_username
+            )
+          )
+        `)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (!error) setSavedJobs(data || []);
+      else console.error("Error fetching saved jobs:", error);
     };
 
     const calculateCompletion = (data) => {
@@ -337,6 +365,17 @@ export default function TalentDashboard() {
               My Applications ({applications.length})
             </button>
             <button
+              onClick={() => setActiveTab("saved")}
+              className={`flex-1 min-w-0 px-6 py-4 font-semibold text-center transition-all ${
+                activeTab === "saved" 
+                  ? "bg-blue-600 text-white" 
+                  : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+              }`}
+            >
+              <i className="fas fa-heart mr-2"></i>
+              Saved Jobs ({savedJobs.length})
+            </button>
+            <button
               onClick={() => setActiveTab("commissions")}
               className={`flex-1 min-w-0 px-6 py-4 font-semibold text-center transition-all ${
                 activeTab === "commissions" 
@@ -434,6 +473,47 @@ export default function TalentDashboard() {
                       </div>
                     )}
                   </>
+                )}
+              </div>
+            )}
+
+            {activeTab === "saved" && (
+              <div className="space-y-4">
+                {savedJobs.length === 0 ? (
+                  <div className="text-center py-12">
+                    <i className="fas fa-heart text-6xl text-gray-300 mb-4"></i>
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No Saved Jobs</h3>
+                    <p className="text-gray-500 mb-6">Save jobs you're interested in to view them here!</p>
+                    <Link href="/find-work">
+                      <button className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-all">
+                        Browse Available Gigs
+                      </button>
+                    </Link>
+                  </div>
+                ) : (
+                  savedJobs.map((savedJob) => (
+                    <Link key={savedJob.id} href={`/job/${savedJob.job_postings.slug}`} className="block">
+                      <div className="p-6 border-2 border-gray-100 rounded-2xl hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer">
+                        <div className="flex justify-between items-start mb-3">
+                          <h3 className="font-bold text-lg text-blue-600 hover:text-blue-700">
+                            {savedJob.job_postings.title}
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            <i className="fas fa-heart text-red-500"></i>
+                            <span className="text-xs text-gray-500">
+                              Saved {new Date(savedJob.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-2">
+                          <span><i className="fas fa-user mr-1"></i>@{savedJob.job_postings.profiles?.vanity_username || 'Anonymous'}</span>
+                          <span><i className="fas fa-map-marker-alt mr-1"></i>{savedJob.job_postings.location}</span>
+                          <span><i className="fas fa-dollar-sign mr-1"></i>{savedJob.job_postings.pay}</span>
+                          <span><i className="fas fa-calendar mr-1"></i>Posted {new Date(savedJob.job_postings.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))
                 )}
               </div>
             )}

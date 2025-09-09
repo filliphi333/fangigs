@@ -38,6 +38,8 @@ export default function FindWork() {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (!error && user) {
         setUser(user);
+        // Fetch saved jobs only if user is logged in
+        fetchSavedJobs(user.id);
       }
       // Don't show sign-in modal automatically - let users browse jobs
     };
@@ -76,6 +78,23 @@ export default function FindWork() {
       setLoading(false);
     }
   };
+
+  // Function to fetch saved jobs for a given user ID
+  const fetchSavedJobs = async (userId) => {
+    try {
+      const { data: savedJobsData, error: savedJobsError } = await supabase
+        .from('saved_jobs')
+        .select('job_id')
+        .eq('user_id', userId);
+
+      if (!savedJobsError && savedJobsData) {
+        setSavedJobs(new Set(savedJobsData.map(job => job.job_id)));
+      }
+    } catch (error) {
+      console.error('Error fetching saved jobs:', error);
+    }
+  };
+
 
   const filteredJobs = useMemo(() => {
     let filtered = jobs;
@@ -404,7 +423,11 @@ export default function FindWork() {
                     <p className="text-xs text-gray-500">{getTimeAgo(job.created_at)}</p>
                   </div>
                   <button
-                    onClick={() => saveJob(job.id)}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        saveJob(job.id);
+                      }}
                     className={`p-2 rounded-full transition-colors ${
                       savedJobs.has(job.id)
                         ? 'bg-red-100 text-red-600 hover:bg-red-200'

@@ -1,41 +1,44 @@
+// app/api/user-office/route.js
+import { NextResponse } from 'next/server';
 
-import { createClient } from '@supabase/supabase-js';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;           // don’t pre-render
+export const runtime = 'nodejs';       // ensure Node runtime
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+function readSupabaseEnv() {
+  const url =
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // Use SERVICE_ROLE on server if you need elevated access; otherwise anon
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return { url, key };
+}
 
-export async function POST(request) {
+export async function GET() {
   try {
-    const { userId, action } = await request.json();
-    
-    if (!userId) {
-      return new Response(JSON.stringify({ error: 'User ID required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    const { url, key } = readSupabaseEnv();
+    if (!url || !key) {
+      return NextResponse.json(
+        { ok: false, error: 'Supabase env not configured on server' },
+        { status: 500 }
+      );
     }
 
-    if (action === 'offline') {
-      await supabase
-        .from('profiles')
-        .update({ 
-          is_online: false,
-          last_seen: new Date().toISOString()
-        })
-        .eq('id', userId);
-    }
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(url, key, { auth: { persistSession: false } });
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    console.error('Error updating user status:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    // TODO: replace with your actual query/logic
+    const { data, error } = await supabase
+      .from('user_office')         // or whatever table you need
+      .select('*')
+      .limit(1);
+
+    if (error) throw error;
+    return NextResponse.json({ ok: true, data });
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: String(err?.message || err) },
+      { status: 500 }
+    );
   }
 }
