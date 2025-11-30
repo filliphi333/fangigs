@@ -101,7 +101,7 @@ export async function GET() {
       // Method 5: Extract from HTML content
       if (item.contentEncoded || item.content || item.description) {
         const htmlContent = item.contentEncoded || item.content || item.description;
-        
+
         // Try multiple image regex patterns
         const imagePatterns = [
           /<img[^>]+src=["']([^"']+)["'][^>]*>/gi,
@@ -145,16 +145,16 @@ export async function GET() {
     const fetchPromises = sources.map(async (source) => {
       try {
         console.log(`Attempting to fetch from ${source.name} (${source.url})...`);
-        
-        // Use custom headers if specified
+
+        // Use custom headers if specified, merging with default headers
         const customParser = new Parser({
           timeout: 10000,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/rss+xml, application/xml, text/xml',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': source.url.includes('xbiz') ? 'https://www.xbiz.com/' : undefined,
-            ...source.headers
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', // Default User-Agent
+            'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml', // Default Accept
+            'Accept-Language': 'en-US,en;q=0.9', // Default Accept-Language
+            'Cache-Control': 'no-cache', // Default Cache-Control
+            ...source.headers // Source-specific headers will override defaults if present
           },
           customFields: {
             item: [
@@ -170,12 +170,12 @@ export async function GET() {
 
         const feed = await customParser.parseURL(source.url);
         console.log(`✅ Successfully fetched ${feed.items?.length || 0} items from ${source.name}`);
-        
+
         if (!feed.items || feed.items.length === 0) {
           console.warn(`${source.name} returned no items`);
           return [];
         }
-        
+
         const parsedArticles = feed.items.slice(0, 5).map((item) => {
           const imageUrl = extractImage(item) || 
             'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=400&auto=format&fit=crop';
@@ -189,13 +189,15 @@ export async function GET() {
             source: source.name,
           };
         });
-        
+
         return parsedArticles;
       } catch (error) {
         console.error(`❌ Failed to fetch from ${source.name}:`, {
           message: error.message,
           code: error.code,
-          url: source.url
+          url: source.url,
+          responseStatus: error.response?.status, // Include response status if available
+          responseHeaders: error.response?.headers // Include response headers if available
         });
         return [];
       }
@@ -203,7 +205,7 @@ export async function GET() {
 
     // Wait for all sources to complete
     const results = await Promise.allSettled(fetchPromises);
-    
+
     // Combine all successful results
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
@@ -213,7 +215,9 @@ export async function GET() {
           articles.push(...sourceArticles);
         }
       } else {
-        console.error(`❌ Source ${sources[index].name} promise rejected:`, result.reason?.message);
+        // This case is for promises that were rejected, which we are already catching inside the map.
+        // However, if an unexpected error occurred during Promise.allSettled itself, it would be caught here.
+        console.error(`❌ Promise for source ${sources[index].name} was rejected unexpectedly:`, result.reason?.message);
       }
     });
 

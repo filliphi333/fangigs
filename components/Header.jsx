@@ -1,4 +1,3 @@
-
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -201,7 +200,7 @@ export default function Header() {
                     </button>
                   </Link>
                 )}
-                
+
                 {/* Regular Dashboard Button */}
                 <Link href={profile.type === 'creator' ? '/producer-dashboard' : '/talent-dashboard'}>
                   <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">

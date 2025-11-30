@@ -4,7 +4,7 @@ import ProfilePageClient from "./ProfilePageClient";
 
 // Server component for metadata generation
 export async function generateMetadata({ params }) {
-  const { username } = params;
+  const { username } = await params;
 
   try {
     const { data: profile, error } = await supabase
@@ -58,6 +58,7 @@ export async function generateMetadata({ params }) {
 }
 
 // Server component that renders the client component
-export default function ProfilePage({ params }) {
-  return <ProfilePageClient username={params.username} />;
+export default async function ProfilePage({ params }) {
+  const { username } = await params;
+  return <ProfilePageClient username={username} />;
 }

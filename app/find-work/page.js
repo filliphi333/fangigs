@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { supabase } from "../../lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function FindWork() {
+function FindWorkContent() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -38,8 +38,6 @@ export default function FindWork() {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (!error && user) {
         setUser(user);
-        // Fetch saved jobs only if user is logged in
-        fetchSavedJobs(user.id);
       }
       // Don't show sign-in modal automatically - let users browse jobs
     };
@@ -78,23 +76,6 @@ export default function FindWork() {
       setLoading(false);
     }
   };
-
-  // Function to fetch saved jobs for a given user ID
-  const fetchSavedJobs = async (userId) => {
-    try {
-      const { data: savedJobsData, error: savedJobsError } = await supabase
-        .from('saved_jobs')
-        .select('job_id')
-        .eq('user_id', userId);
-
-      if (!savedJobsError && savedJobsData) {
-        setSavedJobs(new Set(savedJobsData.map(job => job.job_id)));
-      }
-    } catch (error) {
-      console.error('Error fetching saved jobs:', error);
-    }
-  };
-
 
   const filteredJobs = useMemo(() => {
     let filtered = jobs;
@@ -423,11 +404,7 @@ export default function FindWork() {
                     <p className="text-xs text-gray-500">{getTimeAgo(job.created_at)}</p>
                   </div>
                   <button
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        saveJob(job.id);
-                      }}
+                    onClick={() => saveJob(job.id)}
                     className={`p-2 rounded-full transition-colors ${
                       savedJobs.has(job.id)
                         ? 'bg-red-100 text-red-600 hover:bg-red-200'
@@ -543,5 +520,24 @@ export default function FindWork() {
         )}
       </section>
     </main>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600 text-lg">Loading available gigs...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function FindWork() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <FindWorkContent />
+    </Suspense>
   );
 }

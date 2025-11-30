@@ -1,4 +1,3 @@
-
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -9,6 +8,10 @@ import Image from "next/image";
 // Helper function to get public URL from Supabase storage
 const getPublicUrl = (path) => {
   if (!path) return null;
+  // Don't treat color values as image URLs
+  if (path.startsWith('color:') || path.startsWith('gradient:')) {
+    return null;
+  }
   return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
 };
 
@@ -65,48 +68,76 @@ const SocialIcon = ({ platform, url, icon, hoverColor }) => {
   );
 };
 
-// Gallery component with lazy loading
-const GalleryImage = ({ src, alt, onClick }) => (
-  <div className="relative aspect-square group cursor-pointer" onClick={onClick}>
-    <Image
-      src={src}
-      alt={alt}
-      fill
-      className="object-cover rounded transition-transform group-hover:scale-105"
-      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-      loading="lazy"
-    />
-    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded"></div>
-  </div>
-);
+// Gallery component with lazy loading and error handling
+const GalleryImage = ({ src, alt, onClick }) => {
+  const [imageError, setImageError] = useState(false);
 
-// Enhanced image modal
-const ImageModal = ({ image, onClose }) => (
-  <div
-    className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
-    onClick={onClose}
-  >
-    <div className="relative max-w-6xl max-h-full">
-      <button
-        onClick={onClose}
-        className="absolute -top-12 right-0 text-white text-4xl hover:text-gray-300 z-10 transition-colors"
-        aria-label="Close image"
-      >
-        ×
-      </button>
-      <div className="relative">
-        <Image
-          src={image}
-          alt="Enlarged view"
-          width={1200}
-          height={800}
-          className="max-w-full max-h-[90vh] object-contain rounded"
-          onClick={(e) => e.stopPropagation()}
-        />
+  if (!src || imageError) {
+    return (
+      <div className="relative aspect-square group cursor-pointer bg-gray-200 flex items-center justify-center rounded" onClick={onClick}>
+        <i className="fas fa-image text-gray-400 text-2xl"></i>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative aspect-square group cursor-pointer" onClick={onClick}>
+      <Image
+        src={src}
+        alt={alt || 'Gallery image'}
+        fill
+        className="object-cover rounded transition-transform group-hover:scale-105"
+        style={{ width: '100%', height: '100%' }}
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+        loading="lazy"
+        onError={() => setImageError(true)}
+      />
+      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded"></div>
+    </div>
+  );
+};
+
+// Enhanced image modal with error handling
+const ImageModal = ({ image, onClose }) => {
+  const [imageError, setImageError] = useState(false);
+
+  if (!image) return null;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="relative max-w-6xl max-h-full">
+        <button
+          onClick={onClose}
+          className="absolute -top-12 right-0 text-white text-4xl hover:text-gray-300 z-10 transition-colors"
+          aria-label="Close image"
+        >
+          ×
+        </button>
+        <div className="relative">
+          {!imageError ? (
+            <Image
+              src={image}
+              alt="Enlarged view"
+              width={1200}
+              height={800}
+              className="max-w-full max-h-[90vh] object-contain rounded"
+              style={{ width: 'auto', height: 'auto' }}
+              onClick={(e) => e.stopPropagation()}
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="w-96 h-96 bg-gray-800 flex items-center justify-center rounded">
+              <i className="fas fa-image text-gray-400 text-4xl"></i>
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Portfolio Section Component
 function PortfolioSection({ profileId }) {
@@ -551,7 +582,7 @@ export default function ProfilePageClient({ username }) {
     profile.full_body_image_3 && { src: getPublicUrl(profile.full_body_image_3), alt: "Photo 3" },
     profile.full_body_image_4 && { src: getPublicUrl(profile.full_body_image_4), alt: "Photo 4" },
     profile.full_body_image_5 && { src: getPublicUrl(profile.full_body_image_5), alt: "Photo 5" },
-  ].filter(Boolean);
+  ].filter(item => item && item.src && item.src.trim() !== '');
 
   return (
     <>
@@ -560,16 +591,18 @@ export default function ProfilePageClient({ username }) {
         <header className="relative h-56 sm:h-64 md:h-72 lg:h-80">
           <Image
             src={
-              profile.cover_image
+              profile.cover_image && !profile.cover_image.startsWith("color:") && !profile.cover_image.startsWith("gradient:")
                 ? profile.cover_image.startsWith("default")
                   ? `/images/covers/${profile.cover_image}`
                   : getPublicUrl(profile.cover_image)
                 : "/images/covers/default1.jpg"
             }
-            alt="Cover"
+            alt="Cover image"
             fill
             className="object-cover object-center"
+            style={{ width: '100%', height: '100%' }}
             priority
+            sizes="100vw"
           />
 
           {/* Profile picture with better positioning */}
@@ -581,11 +614,13 @@ export default function ProfilePageClient({ username }) {
                     ? getPublicUrl(profile.headshot_image)
                     : "/placeholder-avatar.png"
                 }
-                alt={profile.full_name}
-                width={192}
-                height={192}
+                alt={profile.full_name || 'Profile picture'}
+                width={224}
+                height={224}
                 className="w-48 h-48 sm:w-56 sm:h-56 rounded-full border-4 border-white object-cover shadow-lg cursor-pointer hover:opacity-90 transition-opacity"
+                style={{ width: 'auto', height: 'auto' }}
                 onClick={() => profile.headshot_image && setModalImage(getPublicUrl(profile.headshot_image))}
+                priority
               />
               {profile.is_verified && (
                 <div className="absolute bottom-2 right-2 bg-blue-600 text-white rounded-full p-2">
@@ -763,13 +798,42 @@ export default function ProfilePageClient({ username }) {
             </div>
           </section>
 
+          {/* Collaborations section */}
+          {profile.collabs && profile.collabs.length > 0 && (
+            <section className="mt-8">
+              <div className="bg-white rounded-2xl shadow-lg p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-gradient-to-r from-orange-500 to-red-500 p-2 rounded-lg">
+                    <i className="fas fa-handshake text-white"></i>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Collaborations</h2>
+                  <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-medium">
+                    {profile.collabs.length} collaborator{profile.collabs.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  {profile.collabs.map((collab, index) => (
+                    <div key={index} className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 text-center border-2 border-gray-200 hover:border-orange-300 transition-colors">
+                      <div className="text-gray-600 text-sm mb-1">
+                        <i className="fas fa-user-friends"></i>
+                      </div>
+                      <p className="font-semibold text-gray-900 text-sm truncate" title={collab}>
+                        {collab}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Portfolio Section */}
           <div className="mt-8">
             <PortfolioSection profileId={profile.id} />
           </div>
 
           {/* Enhanced gallery section */}
-          {profile.type === "talent" && galleryImages.length > 0 && (
+          {galleryImages.length > 0 && (
             <section className="mt-8">
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <div className="flex items-center gap-3 mb-6">
@@ -778,20 +842,45 @@ export default function ProfilePageClient({ username }) {
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900">Gallery</h2>
                   <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-medium">
-                    {galleryImages.length} photos
+                    {galleryImages.length} photo{galleryImages.length !== 1 ? 's' : ''}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                {/* Social media style grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {galleryImages.map((image, index) => (
-                    <div key={index} className="relative group">
+                    <div key={index} className="relative group aspect-square">
                       <GalleryImage
                         src={image.src}
                         alt={image.alt}
                         onClick={() => setModalImage(image.src)}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none"></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-lg pointer-events-none flex items-end justify-center pb-2">
+                        <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                          <i className="fas fa-expand-alt text-gray-700 text-sm"></i>
+                        </div>
+                      </div>
+                      
+                      {/* Photo number indicator */}
+                      <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full font-medium">
+                        {index + 1}
+                      </div>
                     </div>
                   ))}
+                </div>
+                
+                {/* Gallery stats */}
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                  <div className="flex items-center justify-center gap-6 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-camera text-pink-500"></i>
+                      <span>{galleryImages.length} Photos</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-eye text-blue-500"></i>
+                      <span>Click to view full size</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>

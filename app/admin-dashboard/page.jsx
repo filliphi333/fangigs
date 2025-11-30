@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -222,18 +221,18 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+
   // Data states
   const [users, setUsers] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [articles, setArticles] = useState([]);
   const [travelPlans, setTravelPlans] = useState([]);
-  
+
   // UI states
   const [section, setSection] = useState('overview');
   const [loadingStates, setLoadingStates] = useState({});
   const [confirmModal, setConfirmModal] = useState({ isOpen: false });
-  
+
   // Search and filter states
   const [searchTerms, setSearchTerms] = useState({
     users: '',
@@ -247,7 +246,7 @@ export default function AdminDashboard() {
     articles: 'created_at',
     travel: 'created_at'
   });
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState({
     users: 1,
@@ -256,7 +255,7 @@ export default function AdminDashboard() {
     travel: 1
   });
   const ITEMS_PER_PAGE = 10;
-  
+
   // News form states
   const [formData, setFormData] = useState({
     title: '',
@@ -277,7 +276,7 @@ export default function AdminDashboard() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return router.push('/');
-        
+
         const { data, error } = await supabase
           .from('profiles')
           .select('role')
@@ -297,12 +296,20 @@ export default function AdminDashboard() {
   // Data fetching with error handling
   const fetchData = useCallback(async (dataType = 'all') => {
     if (!user) return;
-    
+
     setLoadingStates(prev => ({ ...prev, [dataType]: true }));
-    
+
     try {
       const queries = {
-        users: () => supabase.from('profiles').select('id, full_name, email, type, role, created_at').order('created_at', { ascending: false }),
+        users: async () => {
+          const { data, error, count } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, type, role, created_at, is_public, vanity_username', { count: 'exact' })
+            .order('created_at', { ascending: false });
+
+          console.log(`Found ${count} total profiles, fetched ${data?.length} profiles`);
+          return { data, error };
+        },
         jobs: () => supabase.from('job_postings').select('*').order('created_at', { ascending: false }),
         articles: () => supabase.from('news_articles').select('*').order('created_at', { ascending: false }),
         travel: () => supabase.from('creator_travel_plans').select('*').order('created_at', { ascending: false })
@@ -321,14 +328,14 @@ export default function AdminDashboard() {
         setArticles(articlesRes.data || []);
         setTravelPlans(travelRes.data || []);
       } else if (queries[dataType]) {
-        const { data, error } = await queries[dataType]();
-        if (error) throw error;
-        
+        const res = await queries[dataType]();
+        if (res.error) throw res.error;
+
         switch (dataType) {
-          case 'users': setUsers(data || []); break;
-          case 'jobs': setJobs(data || []); break;
-          case 'articles': setArticles(data || []); break;
-          case 'travel': setTravelPlans(data || []); break;
+          case 'users': setUsers(res.data || []); break;
+          case 'jobs': setJobs(res.data || []); break;
+          case 'articles': setArticles(res.data || []); break;
+          case 'travel': setTravelPlans(res.data || []); break;
         }
       }
     } catch (err) {
@@ -420,11 +427,11 @@ export default function AdminDashboard() {
           .from('profiles')
           .update({ role: newRole })
           .eq('id', userId);
-        
+
         if (error) {
           throw new Error(error.message);
         }
-        
+
         showMessage(`User role updated successfully!`);
         await fetchData('users');
       } catch (err) {
@@ -443,7 +450,7 @@ export default function AdminDashboard() {
     try {
       const { error } = await supabase.from('job_postings').update({ status }).eq('id', jobId);
       if (error) throw error;
-      
+
       showMessage(`Job ${status} successfully!`);
       await fetchData('jobs');
     } catch (err) {
@@ -456,7 +463,7 @@ export default function AdminDashboard() {
       try {
         const { error } = await supabase.from('creator_travel_plans').delete().eq('id', planId);
         if (error) throw error;
-        
+
         showMessage('Travel plan deleted successfully!');
         await fetchData('travel');
       } catch (err) {
@@ -474,7 +481,7 @@ export default function AdminDashboard() {
 
   const handleNewsSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       let finalFormData = { ...formData };
 
@@ -497,7 +504,7 @@ export default function AdminDashboard() {
         if (error) throw error;
         showMessage('Article created successfully!');
       }
-      
+
       resetForm();
       await fetchData('articles');
     } catch (err) {
@@ -525,7 +532,7 @@ export default function AdminDashboard() {
       try {
         const { error } = await supabase.from('news_articles').delete().eq('id', id);
         if (error) throw error;
-        
+
         showMessage('Article deleted successfully!');
         await fetchData('articles');
       } catch (err) {
@@ -564,7 +571,7 @@ export default function AdminDashboard() {
     const file = e.target.files[0];
     if (file) {
       setImageFile(file);
-      
+
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagePreview(e.target.result);
@@ -855,6 +862,7 @@ export default function AdminDashboard() {
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Privacy</th>
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                           </tr>
@@ -863,16 +871,24 @@ export default function AdminDashboard() {
                           {filteredUsers.map((u) => (
                             <tr key={u.id} className="hover:bg-gray-50 transition-colors">
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="font-medium text-gray-900">{u.full_name || 'N/A'}</div>
+                                <div className="font-medium text-gray-900">
+                                  {u.full_name && u.full_name !== 'Full name of the user' ? u.full_name : (u.vanity_username || 'Unnamed User')}
+                                </div>
+                                {u.full_name === 'Full name of the user' && (
+                                  <div className="text-xs text-orange-500">Incomplete Profile</div>
+                                )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-600">{u.email}</div>
+                                <div className="text-sm text-gray-600">{u.email || <span className="text-gray-400 italic">No email</span>}</div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <StatusBadge status={u.type || 'Unknown'} type="type" />
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <StatusBadge status={u.role || 'user'} type="role" />
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <StatusBadge status={u.is_public === false ? 'Private' : 'Public'} type={u.is_public === false ? 'role' : 'type'} />
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {new Date(u.created_at).toLocaleDateString()}
@@ -1196,7 +1212,7 @@ export default function AdminDashboard() {
                   <i className={`fas ${editingId ? 'fa-edit' : 'fa-plus'} text-purple-600 mr-3`}></i>
                   {editingId ? 'Edit Article' : 'Create New Article'}
                 </h2>
-                
+
                 <form onSubmit={handleNewsSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
@@ -1492,11 +1508,11 @@ export default function AdminDashboard() {
                                 </span>
                               </div>
                             </div>
-                            
+
                             <div className="p-6">
                               <h3 className="text-lg font-bold text-gray-900 line-clamp-2 mb-3">{article.title}</h3>
                               <p className="text-sm text-gray-600 line-clamp-3 mb-4">{article.summary || 'No summary available'}</p>
-                              
+
                               <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
                                 <span className="flex items-center">
                                   <i className="fas fa-calendar mr-1"></i>
@@ -1510,7 +1526,7 @@ export default function AdminDashboard() {
                                   {article.full_article?.split(/\s+/).filter(w => w.length > 0).length || 0} words
                                 </span>
                               </div>
-                              
+
                               <div className="flex justify-between items-center">
                                 <a 
                                   href={`/news/${article.title.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')}`}

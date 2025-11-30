@@ -52,8 +52,11 @@ export async function POST(request) {
     const sgMail = require('@sendgrid/mail');
     
     // Set API key from environment variables
-    if (!process.env.SENDGRID_API_KEY) {
-      throw new Error('SENDGRID_API_KEY environment variable is not set');
+    if (!process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY === 'YOUR_ACTUAL_SENDGRID_API_KEY_HERE') {
+      return NextResponse.json(
+        { message: 'SendGrid API key not configured. Please contact the administrator.' },
+        { status: 500 }
+      );
     }
     
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -122,34 +125,12 @@ Visit us at https://fan-gigs.com
     };
 
     // Send email via SendGrid
-    let sendGridResponse;
     try {
-      sendGridResponse = await sgMail.send(emailData);
+      await sgMail.send(emailData);
       console.log('Email sent successfully via SendGrid');
     } catch (sendGridError) {
       console.error('SendGrid error:', sendGridError);
       throw new Error(`Failed to send email: ${sendGridError.message || 'SendGrid error'}`);
-    }
-
-    // Save the sent email to database for tracking
-    const { error: replyInsertError } = await supabase
-      .from('contact_replies')
-      .insert({
-        contact_submission_id: messageId,
-        sender_id: user.id,
-        recipient_email: recipientEmail,
-        recipient_name: recipientName,
-        subject: emailData.subject,
-        reply_content: replyText,
-        original_message: originalMessage,
-        email_html: emailData.html,
-        email_text: emailData.text,
-        sendgrid_message_id: sendGridResponse?.[0]?.headers?.['x-message-id'] || null,
-        delivery_status: 'sent'
-      });
-
-    if (replyInsertError) {
-      console.error('Error saving email reply to database:', replyInsertError);
     }
 
     // Update the contact submission with reply timestamp

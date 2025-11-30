@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,6 +8,19 @@ const HeroSection = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [loadedImages, setLoadedImages] = useState(new Set());
   const intervalRef = useRef(null);
+  const [particles, setParticles] = useState([]);
+
+  // Generate particles only on client side to avoid hydration mismatch
+  useEffect(() => {
+    setParticles(
+      [...Array(20)].map(() => ({
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        y: [0, -30, 0],
+        duration: 3 + Math.random() * 2
+      }))
+    );
+  }, []);
 
   const slides = [
     {
@@ -102,24 +114,23 @@ const HeroSection = () => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Floating Particles Animation */}
+      {/* Floating particles */}
       <div className="absolute inset-0 z-5">
-        {[...Array(20)].map((_, i) => (
+        {particles.map((particle, i) => (
           <motion.div
             key={i}
             className="absolute w-2 h-2 bg-white/20 rounded-full"
             animate={{
-              y: [-20, -100],
-              opacity: [0, 1, 0],
+              y: particle.y,
             }}
             transition={{
-              duration: Math.random() * 3 + 2,
+              duration: particle.duration,
               repeat: Infinity,
-              delay: Math.random() * 2,
+              ease: "easeInOut"
             }}
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
+              left: particle.left,
+              top: particle.top,
             }}
           />
         ))}
@@ -148,7 +159,7 @@ const HeroSection = () => {
                 {slides[currentSlide].subtitle}
               </span>
             </motion.h1>
-            
+
             <motion.p
               className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto"
               initial={{ opacity: 0 }}
@@ -173,7 +184,7 @@ const HeroSection = () => {
                 <i className="fas fa-search mr-2"></i>
                 Get Started
               </motion.button>
-              
+
               <motion.button
                 className="border-2 border-white text-white px-8 py-4 rounded-2xl font-bold text-lg backdrop-blur-sm bg-white/10"
                 whileHover={{ scale: 1.05, y: -2, backgroundColor: "rgba(255,255,255,0.2)" }}
@@ -200,7 +211,7 @@ const HeroSection = () => {
           <i className="fas fa-chevron-left"></i>
         </motion.button>
       </div>
-      
+
       <div className="absolute top-1/2 right-4 transform -translate-y-1/2 z-30">
         <motion.button
           className="bg-black/50 hover:bg-black/70 backdrop-blur-sm p-4 rounded-full text-white text-xl border border-white/20"

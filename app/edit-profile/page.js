@@ -14,7 +14,11 @@ const DEFAULT_COVER_IMAGES = [
 const COLOR_SCHEMES = {
   solid: [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+    // Added darker colors
+    '#2C3E50', '#34495E', '#1B2631', '#273746', '#212F3D',
+    '#4A235A', '#633974', '#7B241C', '#943126', '#641E16',
+    '#145A32', '#0E4B99', '#1B4F72', '#154360', '#0B5345'
   ],
   gradients: [
     'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -24,7 +28,16 @@ const COLOR_SCHEMES = {
     'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
     'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
     'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'
+    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+    // Added darker gradients
+    'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
+    'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
+    'linear-gradient(135deg, #232526 0%, #414345 100%)',
+    'linear-gradient(135deg, #0c0c0c 0%, #454545 100%)',
+    'linear-gradient(135deg, #2b5876 0%, #4e4376 100%)',
+    'linear-gradient(135deg, #134e5e 0%, #71b280 100%)',
+    'linear-gradient(135deg, #5f2c82 0%, #49a09d 100%)',
+    'linear-gradient(135deg, #1a2a6c 0%, #b21f1f 100%)'
   ]
 };
 
@@ -236,7 +249,11 @@ export default function EditProfile() {
       setUploadPreview(null);
     } catch (error) {
       console.error('Error updating cover image:', error);
-      alert(`Error updating cover image: ${error.message}`);
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
+      errorMsg.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>Error updating cover image: ${error.message}</span>`;
+      document.body.appendChild(errorMsg);
+      setTimeout(() => document.body.removeChild(errorMsg), 5000);
     }
   };
 
@@ -259,7 +276,11 @@ export default function EditProfile() {
       setUploadPreview(null);
     } catch (error) {
       console.error('Error updating cover:', error);
-      alert(`Error updating cover: ${error.message}`);
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
+      errorMsg.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>Error updating cover: ${error.message}</span>`;
+      document.body.appendChild(errorMsg);
+      setTimeout(() => document.body.removeChild(errorMsg), 5000);
     }
   };
 
@@ -339,7 +360,11 @@ export default function EditProfile() {
       router.push("/profile/" + updates.vanity_username);
       
     } catch (error) {
-      alert(error.message);
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
+      errorMsg.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>${error.message}</span>`;
+      document.body.appendChild(errorMsg);
+      setTimeout(() => document.body.removeChild(errorMsg), 5000);
     } finally {
       setUpdating(false);
     }
@@ -912,11 +937,16 @@ export default function EditProfile() {
               className="mt-1"
             />
             <div>
-              <label className="font-medium text-gray-800">Make Profile Anonymous</label>
-              <p className="text-sm text-gray-600 mt-1">
-                Making your profile public significantly increases your chances of getting noticed and hired.
-                When your profile is public, producers and casting directors can discover you through search.
-              </p>
+              <label className="font-medium text-gray-800">Make Profile Private</label>
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-2">
+                <p className="text-sm text-yellow-800 font-semibold">
+                  ⚠️ Warning: Private profiles are NOT discoverable and will NOT appear in search results.
+                </p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Making your profile public significantly increases your chances of getting noticed and hired by 10x.
+                  Only creators who have your direct profile link can view your profile when private.
+                </p>
+              </div>
             </div>
           </div>
 

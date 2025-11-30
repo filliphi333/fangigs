@@ -3,7 +3,7 @@ import { absoluteUrl } from "../../../lib/seo";
 import JobPageClient from './JobPageClient';
 
 export async function generateMetadata({ params }) {
-  const { slug } = params;
+  const { slug } = await params;
 
   try {
     const { data: job, error } = await supabase
@@ -69,6 +69,7 @@ export async function generateMetadata({ params }) {
   }
 }
 
-export default function JobPage({ params }) {
-  return <JobPageClient slug={params.slug} />;
+export default async function JobPage({ params }) {
+  const { slug } = await params;
+  return <JobPageClient slug={slug} />;
 }

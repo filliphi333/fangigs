@@ -1,5 +1,4 @@
-import Head from "next/head";
-import Script from "next/script"; // 👈 Add this
+import Script from "next/script";
 import "./globals.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -22,9 +21,6 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <Head>
-        {/* optional: meta tags, custom head elements */}
-      </Head>
       <body className="flex flex-col min-h-screen scroll-smooth">
 
         {/* ✅ Google Analytics */}
