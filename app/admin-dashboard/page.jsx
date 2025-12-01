@@ -232,6 +232,7 @@ export default function AdminDashboard() {
   const [section, setSection] = useState('overview');
   const [loadingStates, setLoadingStates] = useState({});
   const [confirmModal, setConfirmModal] = useState({ isOpen: false });
+  const [userTypeFilter, setUserTypeFilter] = useState('all');
 
   // Search and filter states
   const [searchTerms, setSearchTerms] = useState({
@@ -302,13 +303,15 @@ export default function AdminDashboard() {
     try {
       const queries = {
         users: async () => {
-          const { data, error, count } = await supabase
+          // Fetch profiles - email is already stored in the profiles table
+          const { data: profiles, error: profileError } = await supabase
             .from('profiles')
-            .select('id, full_name, email, type, role, created_at, is_public, vanity_username', { count: 'exact' })
+            .select('id, full_name, email, type, role, created_at, vanity_username, is_public')
             .order('created_at', { ascending: false });
 
-          console.log(`Found ${count} total profiles, fetched ${data?.length} profiles`);
-          return { data, error };
+          if (profileError) throw profileError;
+
+          return { data: profiles || [], error: null };
         },
         jobs: () => supabase.from('job_postings').select('*').order('created_at', { ascending: false }),
         articles: () => supabase.from('news_articles').select('*').order('created_at', { ascending: false }),
@@ -328,14 +331,14 @@ export default function AdminDashboard() {
         setArticles(articlesRes.data || []);
         setTravelPlans(travelRes.data || []);
       } else if (queries[dataType]) {
-        const res = await queries[dataType]();
-        if (res.error) throw res.error;
+        const { data, error } = await queries[dataType]();
+        if (error) throw error;
 
         switch (dataType) {
-          case 'users': setUsers(res.data || []); break;
-          case 'jobs': setJobs(res.data || []); break;
-          case 'articles': setArticles(res.data || []); break;
-          case 'travel': setTravelPlans(res.data || []); break;
+          case 'users': setUsers(data || []); break;
+          case 'jobs': setJobs(data || []); break;
+          case 'articles': setArticles(data || []); break;
+          case 'travel': setTravelPlans(data || []); break;
         }
       }
     } catch (err) {
@@ -581,12 +584,17 @@ export default function AdminDashboard() {
   };
 
   // Filtered and paginated data
-  const getFilteredAndPaginatedData = (data, searchTerm, sortField, currentPage) => {
+  const getFilteredAndPaginatedData = (data, searchTerm, sortField, currentPage, typeFilter = null) => {
     let filtered = data;
+
+    // Apply type filter for users
+    if (typeFilter && typeFilter !== 'all') {
+      filtered = filtered.filter(item => item.type === typeFilter);
+    }
 
     // Apply search filter
     if (searchTerm) {
-      filtered = data.filter(item => {
+      filtered = filtered.filter(item => {
         const searchableFields = Object.values(item).join(' ').toLowerCase();
         return searchableFields.includes(searchTerm.toLowerCase());
       });
@@ -639,8 +647,9 @@ export default function AdminDashboard() {
 
   if (!user) return null;
 
+  // Calculate filtered data before early returns (to avoid hook order issues)
   const { data: filteredUsers, totalPages: usersTotalPages } = getFilteredAndPaginatedData(
-    users, searchTerms.users, sortBy.users, currentPage.users
+    users, searchTerms.users, sortBy.users, currentPage.users, userTypeFilter
   );
   const { data: filteredJobs, totalPages: jobsTotalPages } = getFilteredAndPaginatedData(
     jobs, searchTerms.jobs, sortBy.jobs, currentPage.jobs
@@ -836,6 +845,43 @@ export default function AdminDashboard() {
               </div>
 
               <div className="p-6">
+                {/* User Type Tabs */}
+                <div className="flex gap-2 mb-6">
+                  <button
+                    onClick={() => setUserTypeFilter('all')}
+                    className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 ${
+                      userTypeFilter === 'all'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <i className="fas fa-users"></i>
+                    All Users ({users.length})
+                  </button>
+                  <button
+                    onClick={() => setUserTypeFilter('talent')}
+                    className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 ${
+                      userTypeFilter === 'talent'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <i className="fas fa-star"></i>
+                    Talents ({users.filter(u => u.type === 'talent').length})
+                  </button>
+                  <button
+                    onClick={() => setUserTypeFilter('creator')}
+                    className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 ${
+                      userTypeFilter === 'creator'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <i className="fas fa-video"></i>
+                    Creators ({users.filter(u => u.type === 'creator').length})
+                  </button>
+                </div>
+
                 <SearchAndFilter
                   searchTerm={searchTerms.users}
                   setSearchTerm={(term) => setSearchTerms(prev => ({ ...prev, users: term }))}
@@ -894,6 +940,17 @@ export default function AdminDashboard() {
                                 {new Date(u.created_at).toLocaleDateString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                {u.vanity_username && (
+                                  <a
+                                    href={`/profile/${u.vanity_username}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg hover:bg-blue-200 transition-colors font-medium inline-block"
+                                  >
+                                    <i className="fas fa-user mr-1"></i>
+                                    View
+                                  </a>
+                                )}
                                 {u.role !== 'admin' ? (
                                   <button 
                                     className="bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200 transition-colors font-medium" 

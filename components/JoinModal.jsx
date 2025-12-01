@@ -262,6 +262,12 @@ export default function JoinModal({ isOpen, onClose }) {
       const { data, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            display_name: formData.fullName
+          }
+        }
       });
 
       if (authError) {

@@ -1,4 +1,3 @@
-
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
@@ -14,11 +13,7 @@ const DEFAULT_COVER_IMAGES = [
 const COLOR_SCHEMES = {
   solid: [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
-    // Added darker colors
-    '#2C3E50', '#34495E', '#1B2631', '#273746', '#212F3D',
-    '#4A235A', '#633974', '#7B241C', '#943126', '#641E16',
-    '#145A32', '#0E4B99', '#1B4F72', '#154360', '#0B5345'
+    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
   ],
   gradients: [
     'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -28,22 +23,15 @@ const COLOR_SCHEMES = {
     'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
     'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
     'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
-    // Added darker gradients
-    'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-    'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
-    'linear-gradient(135deg, #232526 0%, #414345 100%)',
-    'linear-gradient(135deg, #0c0c0c 0%, #454545 100%)',
-    'linear-gradient(135deg, #2b5876 0%, #4e4376 100%)',
-    'linear-gradient(135deg, #134e5e 0%, #71b280 100%)',
-    'linear-gradient(135deg, #5f2c82 0%, #49a09d 100%)',
-    'linear-gradient(135deg, #1a2a6c 0%, #b21f1f 100%)'
+    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'
   ]
 };
 
 export default function EditProfile() {
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState({});
+  const [profile, setProfile] = useState({
+    is_public: true,          // profile is public by default
+    open_to_messages: true,   // open to messages by default
+  });
   const [updating, setUpdating] = useState(false);
   const [coverModalOpen, setCoverModalOpen] = useState(false);
   const [uploadingImages, setUploadingImages] = useState({});
@@ -52,38 +40,74 @@ export default function EditProfile() {
   const [collabs, setCollabs] = useState([]);
   const [newCollab, setNewCollab] = useState('');
   const [uploadPreview, setUploadPreview] = useState(null);
+  const [user, setUser] = useState(null);
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(true);   // 👈 add this
+
   const router = useRouter();
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+    const fetchProfileAndUser = async () => {
+      const { data: { user: userData }, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData) {
         router.push('/');
         return;
       }
+      setUser(userData); // Set user object
+
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user.id)
+        .eq("id", userData.id)
         .single();
+      
       if (!error) {
-        setProfile({ 
+        const profileData = { 
           ...data, 
-          is_public: data.is_public ?? true,
-          open_to_messages: data.open_to_messages ?? true
-        });
+          is_public: data.is_public ?? true, // Default to true (public) if not set
+          open_to_messages: data.open_to_messages ?? true // Default to true if not set
+        };
+        setProfile(profileData);
+
+        // If is_public or open_to_messages is null/undefined in DB, update them to true
+        if (data.is_public === null || data.is_public === undefined || data.open_to_messages === null || data.open_to_messages === undefined) {
+          const updates = {};
+          if (data.is_public === null || data.is_public === undefined) {
+            updates.is_public = true;
+          }
+          if (data.open_to_messages === null || data.open_to_messages === undefined) {
+            updates.open_to_messages = true;
+          }
+          
+          await supabase
+            .from("profiles")
+            .update(updates)
+            .eq("id", userData.id);
+        }
+
         if (data.collabs) {
           setCollabs(data.collabs);
         }
       }
       setLoading(false);
     };
-    fetchProfile();
+    fetchProfileAndUser();
   }, [router]);
+
+  // Initialize full name from profile or auth metadata
+  useEffect(() => {
+    if (profile && user) {
+      const initialFullName = 
+        profile.full_name || 
+        user?.user_metadata?.full_name || 
+        '';
+      setFullName(initialFullName);
+    }
+  }, [profile, user]);
 
   const validateField = (name, value) => {
     const newErrors = { ...errors };
-    
+
     switch (name) {
       case 'full_name':
         if (!value || value.trim().length < 2) {
@@ -120,26 +144,31 @@ export default function EditProfile() {
       default:
         break;
     }
-    
+
     setErrors(newErrors);
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const newValue = type === "checkbox" ? checked : value;
-    
-    setProfile((prev) => ({
-      ...prev,
-      [name]: newValue,
-    }));
-    
-    validateField(name, newValue);
+
+    // Special handling for full_name to use the dedicated state
+    if (name === 'full_name') {
+      setFullName(newValue);
+      validateField(name, newValue);
+    } else {
+      setProfile((prev) => ({
+        ...prev,
+        [name]: newValue,
+      }));
+      validateField(name, newValue);
+    }
   };
 
   const convertHeight = (value, fromUnit, toUnit) => {
     if (!value) return '';
     if (fromUnit === toUnit) return value;
-    
+
     if (fromUnit === 'cm' && toUnit === 'ft') {
       return Math.round((value / 30.48) * 10) / 10; // Convert cm to ft
     } else if (fromUnit === 'ft' && toUnit === 'cm') {
@@ -170,8 +199,8 @@ export default function EditProfile() {
     setUploadingImages(prev => ({ ...prev, [imageType]: true }));
 
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      if (userError || !currentUser) {
         throw new Error("Please log in to upload images");
       }
 
@@ -184,7 +213,7 @@ export default function EditProfile() {
       }
 
       const extension = file.name.split(".").pop();
-      const path = `${user.id}/${imageType}.${extension}`;
+      const path = `${currentUser.id}/${imageType}.${extension}`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("avatars")
@@ -201,19 +230,19 @@ export default function EditProfile() {
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ [imageType]: path })
-        .eq("id", user.id);
+        .eq("id", currentUser.id);
 
       if (profileError) {
         throw new Error(`Profile update failed: ${profileError.message}`);
       }
 
       setProfile(prev => ({ ...prev, [imageType]: path }));
-      
+
       if (imageType === "cover_image") {
         setCoverModalOpen(false);
         setUploadPreview(null);
       }
-      
+
       const successMsg = document.createElement('div');
       successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
       successMsg.textContent = 'Image uploaded successfully!';
@@ -234,53 +263,52 @@ export default function EditProfile() {
 
   const handleCoverSelect = async (filename) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("Not authenticated");
 
       const { error } = await supabase
         .from("profiles")
         .update({ cover_image: filename })
-        .eq("id", user.id);
-      
+        .eq("id", currentUser.id);
+
       if (error) throw new Error(`Failed to update cover image: ${error.message}`);
-      
+
       setProfile(prev => ({ ...prev, cover_image: filename }));
       setCoverModalOpen(false);
       setUploadPreview(null);
+
+      // Show success message
+      const successMsg = document.createElement('div');
+      successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+      successMsg.textContent = 'Cover image updated successfully!';
+      document.body.appendChild(successMsg);
+      setTimeout(() => document.body.removeChild(successMsg), 3000);
     } catch (error) {
       console.error('Error updating cover image:', error);
-      const errorMsg = document.createElement('div');
-      errorMsg.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
-      errorMsg.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>Error updating cover image: ${error.message}</span>`;
-      document.body.appendChild(errorMsg);
-      setTimeout(() => document.body.removeChild(errorMsg), 5000);
+      alert(`Error updating cover image: ${error.message}`);
     }
   };
 
   const handleColorSchemeSelect = async (colorValue, isGradient = false) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("Not authenticated");
 
       const coverValue = isGradient ? `gradient:${colorValue}` : `color:${colorValue}`;
-      
+
       const { error } = await supabase
         .from("profiles")
         .update({ cover_image: coverValue })
-        .eq("id", user.id);
-      
+        .eq("id", currentUser.id);
+
       if (error) throw new Error(`Failed to update cover: ${error.message}`);
-      
+
       setProfile(prev => ({ ...prev, cover_image: coverValue }));
       setCoverModalOpen(false);
       setUploadPreview(null);
     } catch (error) {
       console.error('Error updating cover:', error);
-      const errorMsg = document.createElement('div');
-      errorMsg.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
-      errorMsg.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>Error updating cover: ${error.message}</span>`;
-      document.body.appendChild(errorMsg);
-      setTimeout(() => document.body.removeChild(errorMsg), 5000);
+      alert(`Error updating cover: ${error.message}`);
     }
   };
 
@@ -301,23 +329,23 @@ export default function EditProfile() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    validateField('full_name', profile.full_name);
+
+    validateField('full_name', fullName); // Validate the dedicated fullName state
     validateField('vanity_username', profile.vanity_username);
     validateField('height', profile.height);
     validateField('phone', profile.phone);
-    
+
     if (Object.keys(errors).length > 0) {
       return;
     }
-    
+
     setUpdating(true);
-    
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+
       const updates = {
-        full_name: profile.full_name,
+        full_name: fullName, // Use the dedicated fullName state
         vanity_username: profile.vanity_username,
         bio: profile.bio,
         birthday: profile.birthday,
@@ -347,8 +375,8 @@ export default function EditProfile() {
 
       const { error } = await supabase
         .from("profiles")
-        .upsert([{ id: user.id, ...updates }], { onConflict: "id" });
-      
+        .upsert([{ id: currentUser.id, ...updates }], { onConflict: "id" });
+
       if (error) {
         if (error.code === '23505') {
           throw new Error("That username is already taken! Please choose another one.");
@@ -356,15 +384,11 @@ export default function EditProfile() {
           throw new Error("Error updating profile: " + error.message);
         }
       }
-      
+
       router.push("/profile/" + updates.vanity_username);
-      
+
     } catch (error) {
-      const errorMsg = document.createElement('div');
-      errorMsg.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
-      errorMsg.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>${error.message}</span>`;
-      document.body.appendChild(errorMsg);
-      setTimeout(() => document.body.removeChild(errorMsg), 5000);
+      alert(error.message);
     } finally {
       setUpdating(false);
     }
@@ -373,44 +397,13 @@ export default function EditProfile() {
   const bucketURL = "https://xeqkvaqpgqyjlybexxmm.supabase.co/storage/v1/object/public/avatars";
 
   const renderCoverPreview = () => {
-    if (!profile.cover_image) {
+    if (!profile.cover_image || profile.cover_image.startsWith('color:') || profile.cover_image.startsWith('gradient:')) {
       return (
-        <div className="w-full h-48 sm:h-64 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg flex items-center justify-center text-gray-600">
-          <div className="text-center">
-            <i className="fas fa-image text-4xl mb-2"></i>
-            <p>No Cover Image</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (profile.cover_image.startsWith('color:')) {
-      const color = profile.cover_image.replace('color:', '');
-      return (
-        <div 
-          className="w-full h-48 sm:h-64 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: color }}
-        >
-          <div className="text-center text-white">
-            <i className="fas fa-palette text-4xl mb-2"></i>
-            <p>Color Cover</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (profile.cover_image.startsWith('gradient:')) {
-      const gradient = profile.cover_image.replace('gradient:', '');
-      return (
-        <div 
-          className="w-full h-48 sm:h-64 rounded-lg flex items-center justify-center"
-          style={{ background: gradient }}
-        >
-          <div className="text-center text-white">
-            <i className="fas fa-palette text-4xl mb-2"></i>
-            <p>Gradient Cover</p>
-          </div>
-        </div>
+        <img
+          src="/images/covers/default1.jpg"
+          alt="Default cover"
+          className="object-cover object-center w-full h-48 sm:h-64 rounded-lg"
+        />
       );
     }
 
@@ -481,13 +474,13 @@ export default function EditProfile() {
           {/* Basic Info */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-800">Basic Information</h2>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Full Name *</label>
               <input 
                 name="full_name" 
                 placeholder="Your real or stage name" 
-                value={profile.full_name || ""} 
+                value={fullName || ""} // Use fullName state here
                 onChange={handleChange} 
                 className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.full_name ? 'border-red-500' : 'border-gray-300'}`}
                 required
@@ -568,7 +561,7 @@ export default function EditProfile() {
           {/* Physical Details */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-800">Details</h2>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Birthday</label>
@@ -580,7 +573,7 @@ export default function EditProfile() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Height</label>
                 <div className="flex gap-2">
@@ -618,7 +611,7 @@ export default function EditProfile() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Hair Color</label>
                 <input 
@@ -693,7 +686,7 @@ export default function EditProfile() {
                 <i className="fas fa-plus"></i>
               </button>
             </div>
-            
+
             {collabs.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {collabs.map((collab, index) => (
@@ -716,7 +709,7 @@ export default function EditProfile() {
         {/* Photos Section */}
         <div className="mt-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Photos</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <label className="block text-sm font-medium">Head-shot (Avatar)</label>
@@ -873,7 +866,7 @@ export default function EditProfile() {
         {/* Social Media */}
         <div className="mt-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Social Media</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Instagram Username</label>
@@ -890,7 +883,7 @@ export default function EditProfile() {
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Twitter Username</label>
               <div className="flex">
@@ -906,7 +899,7 @@ export default function EditProfile() {
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Snapchat Username</label>
               <div className="flex">
@@ -928,35 +921,36 @@ export default function EditProfile() {
         {/* Privacy Settings */}
         <div className="mt-8 p-6 bg-gray-50 rounded-lg space-y-4">
           <h2 className="text-xl font-semibold text-gray-800">Privacy Settings</h2>
-          
+
           <div className="flex items-start space-x-3">
             <input 
-              type="checkbox" 
-              checked={!profile.is_public} 
-              onChange={(e) => setProfile(prev => ({ ...prev, is_public: !e.target.checked }))} 
-              className="mt-1"
-            />
+  type="checkbox" 
+  checked={profile.is_public === false}
+  onChange={(e) =>
+    setProfile(prev => ({ ...prev, is_public: !e.target.checked }))
+  }
+  className="mt-1"
+/>
             <div>
               <label className="font-medium text-gray-800">Make Profile Private</label>
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-2">
-                <p className="text-sm text-yellow-800 font-semibold">
-                  ⚠️ Warning: Private profiles are NOT discoverable and will NOT appear in search results.
-                </p>
-                <p className="text-sm text-yellow-700 mt-1">
-                  Making your profile public significantly increases your chances of getting noticed and hired by 10x.
-                  Only creators who have your direct profile link can view your profile when private.
-                </p>
-              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                <i className="fas fa-warning text-yellow-600 mr-1"></i>
+                <strong>Warning:</strong> Private profiles are NOT discoverable and will NOT appear in search results. 
+                Making your profile public significantly increases your chances of getting noticed and hired by 10x. Only creators who 
+                have your direct profile link can view your profile when private.
+              </p>
             </div>
           </div>
 
           <div className="flex items-start space-x-3">
             <input 
-              type="checkbox" 
-              checked={profile.open_to_messages || false} 
-              onChange={(e) => setProfile(prev => ({ ...prev, open_to_messages: e.target.checked }))} 
-              className="mt-1"
-            />
+  type="checkbox" 
+  checked={profile.open_to_messages}
+  onChange={(e) =>
+    setProfile(prev => ({ ...prev, open_to_messages: e.target.checked }))
+  }
+  className="mt-1"
+/>
             <div>
               <label className="font-medium text-gray-800">Open to Messages</label>
               <p className="text-sm text-gray-600 mt-1">
@@ -1011,7 +1005,7 @@ export default function EditProfile() {
                 ×
               </button>
             </div>
-            
+
             {/* Default Images */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-3">Choose from Defaults</h3>
@@ -1032,40 +1026,10 @@ export default function EditProfile() {
               </div>
             </div>
 
-            {/* Solid Colors */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">Solid Colors</h3>
-              <div className="grid grid-cols-5 gap-3">
-                {COLOR_SCHEMES.solid.map((color) => (
-                  <div
-                    key={color}
-                    className="w-16 h-16 rounded-lg cursor-pointer border-2 border-gray-200 hover:border-blue-400 transition-colors shadow-sm"
-                    style={{ backgroundColor: color }}
-                    onClick={() => handleColorSchemeSelect(color, false)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Gradient Colors */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">Gradient Colors</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {COLOR_SCHEMES.gradients.map((gradient, index) => (
-                  <div
-                    key={index}
-                    className="w-full h-16 rounded-lg cursor-pointer border-2 border-gray-200 hover:border-blue-400 transition-colors shadow-sm"
-                    style={{ background: gradient }}
-                    onClick={() => handleColorSchemeSelect(gradient, true)}
-                  />
-                ))}
-              </div>
-            </div>
-            
             {/* Upload Custom */}
             <div className="border-t pt-6">
               <h3 className="text-lg font-semibold mb-3">Upload Custom Image</h3>
-              
+
               {/* Preview uploaded image */}
               {uploadPreview && (
                 <div className="mb-4">
@@ -1077,7 +1041,7 @@ export default function EditProfile() {
                   />
                 </div>
               )}
-              
+
               <input 
                 type="file" 
                 accept="image/*" 

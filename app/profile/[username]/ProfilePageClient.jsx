@@ -298,10 +298,10 @@ export default function ProfilePageClient({ username }) {
         setViewerId(user?.id || null);
 
         if (user?.id) {
-          // Fetch viewer's profile to check their type
+          // Fetch viewer's profile to check their type and role
           const { data: viewerData } = await supabase
             .from("profiles")
-            .select("type")
+            .select("type, role")
             .eq("id", user.id)
             .single();
           setViewerProfile(viewerData);
@@ -564,7 +564,7 @@ export default function ProfilePageClient({ username }) {
     );
   }
 
-  if (!profile.is_public && viewerId !== profile.id) {
+  if (!profile.is_public && viewerId !== profile.id && viewerProfile?.role !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="text-center bg-white p-8 rounded shadow max-w-sm">
